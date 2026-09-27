@@ -3,21 +3,38 @@
 
 mod autopilot;
 mod clock;
+mod colonize;
+mod commanders;
+mod control_panel;
+mod create_unit;
+mod credits;
 mod disk;
 mod focus;
+mod galactic_map;
 mod game;
 mod game_data;
+mod group;
 mod hero;
 mod hud;
+mod info_buy;
 mod input;
 mod main_computer;
 mod main_screen;
 mod menu;
 mod messages;
+mod model_view;
 mod pic;
 mod planet;
 mod planet_info;
+mod popup;
+mod research;
+mod resource_mine;
 mod screen;
+mod space_battle;
+mod ship_info;
+mod staff_talk;
+mod text;
+mod transfer;
 mod transition;
 
 use bevy::asset::AssetMetaCheck;
@@ -78,6 +95,25 @@ fn main() {
             planet_info::PlanetInfoPlugin,
             messages::MessagesPlugin,
             main_computer::MainComputerPlugin,
+            research::ResearchPlugin,
+            commanders::CommandersPlugin,
+            galactic_map::GalacticMapPlugin,
+            credits::CreditsPlugin,
+        ))
+        .add_plugins((
+            text::TextPlugin,
+            ship_info::ShipInfoPlugin,
+            create_unit::CreateUnitPlugin,
+            group::GroupPlugin,
+            model_view::ModelViewPlugin,
+            info_buy::InfoBuyPlugin,
+            popup::PopupPlugin,
+            control_panel::ControlPanelPlugin,
+            transfer::TransferPlugin,
+            staff_talk::StaffTalkPlugin,
+            resource_mine::ResourceMinePlugin,
+            colonize::ColonizePlugin,
+            space_battle::SpaceBattlePlugin,
         ))
         .run();
 }

@@ -131,3 +131,176 @@ fn reads_planet_surfaces() {
     let map = SurfaceMap::decode(&map).unwrap();
     assert_eq!((map.width, map.height), (48, 48));
 }
+
+#[test]
+fn unit_catalog_and_the_new_earth_base() {
+    let (Some(prg), Some(init)) = (game_file("GRWAR/REUNION.PRG"), game_file("SAVE/INIT")) else {
+        return;
+    };
+    let exe = GameExe::parse(prg).unwrap();
+    let army = exe.unit_categories(1).unwrap();
+    assert_eq!(army.len(), 2);
+    assert_eq!(army[0].slot, 1);
+    let names = |c: &reunion_formats::exe::UnitCategory| {
+        c.kinds.iter().map(|k| k.name.clone()).collect::<Vec<_>>()
+    };
+    assert_eq!(names(&army[0]), ["Hunter", "Fighter", "Destroyer", "Cruiser"]);
+    assert_eq!(army[0].kinds[0].capacity, [2, 1, 0, 0]);
+    assert_eq!(army[0].kinds[0].name_at, (16, 176));
+    assert_eq!(army[0].equipment[0].name, "Laser");
+    assert_eq!(army[0].columns, 4);
+    assert_eq!(army[1].slot, 2);
+    assert_eq!(names(&army[1]), ["Trooper", "Tank", "Aircraft", "Miss tank"]);
+    assert_eq!(army[1].columns, 3);
+    assert_eq!(
+        names(&exe.unit_categories(2).unwrap()[0]),
+        ["Sloop", "Trade ship", "Piracy ship", "Galleon"]
+    );
+    assert_eq!(
+        exe.satellite_names().unwrap(),
+        ["Satellite", "Spy Sat", "Spy Ship", "Solar sat"]
+    );
+
+    use reunion_formats::state::{UnitList, unit};
+    let mut state = GameState::new_game(&exe, &init, 1).unwrap();
+    assert_eq!(state.unit_count(UnitList::Groups), 0);
+    let base = state.unit(UnitList::Bases, 1).unwrap();
+    assert_eq!(base[unit::TYPE], 5);
+    assert_eq!(&base[unit::NAME + 1..unit::NAME + 17], b"New Earth forces");
+    assert_eq!(base[unit::STATUS], 7);
+    assert_eq!(state.add_group(), Some(1));
+    let group = state.unit(UnitList::Groups, 1).unwrap();
+    assert_eq!(&group[unit::NAME..unit::NAME + 10], b"\x09New Group");
+    assert_eq!((group[unit::SYSTEM], group[unit::PLANET]), (1, 5));
+}
+
+#[test]
+fn decodes_every_model() {
+    let Some(_) = game_file("VECTORS/V1.VEC") else {
+        return;
+    };
+    for n in 1..=35 {
+        let data = game_file(&format!("VECTORS/V{n}.VEC")).unwrap();
+        let model = reunion_formats::vec::decode(&data).unwrap_or_else(|e| panic!("V{n}: {e}"));
+        assert!(!model.objects.is_empty(), "V{n}");
+        for o in &model.objects {
+            assert!(o.faces.iter().flatten().all(|&v| v < o.vertices.len()), "V{n}");
+        }
+    }
+}
+
+#[test]
+fn colony_model_runs_on_new_earth() {
+    let (Some(prg), Some(init)) = (game_file("GRWAR/REUNION.PRG"), game_file("SAVE/INIT")) else {
+        return;
+    };
+    let exe = GameExe::parse(prg).unwrap();
+    let original = GameState::new_game(&exe, &init, 1).unwrap();
+    let mut state = original.clone();
+    state.update_colony(&exe, (1, 5, 0), 5);
+    // SAVE/INIT's own numbers are stale (1100 workers in a 900-worker
+    // command centre), so check the model's invariants instead.
+    for b in state.buildings() {
+        let kind = exe.building_type(b[0]).unwrap();
+        if b[8] != 0 {
+            assert!(u16::from_le_bytes([b[9], b[10]]) <= kind.workers);
+            assert!(b[13] <= 100);
+        }
+    }
+    assert!(state.buildings().iter().filter(|b| b[8] != 0).count() > 10);
+}
+
+#[test]
+#[ignore]
+fn print_building_types() {
+    let Some(prg) = game_file("GRWAR/REUNION.PRG") else { return };
+    let exe = GameExe::parse(prg).unwrap();
+    for t in 1..=25 {
+        let k = exe.building_type(t).unwrap();
+        println!("{t:2} {:14} inv {:2} cat {:2} workers {:5} energy {:6} prod {:5} cost {:6} prio {}", k.name, k.invention, k.category, k.workers, k.energy, k.production, k.cost, k.priority);
+    }
+}
+
+#[test]
+fn simulation_runs_for_months() {
+    use reunion_formats::sim::Texts;
+    let (Some(prg), Some(init), Some(messages), Some(kitalal)) = (
+        game_file("GRWAR/REUNION.PRG"),
+        game_file("SAVE/INIT"),
+        game_file("TEXT/MESSAGE.TXT"),
+        game_file("TEXT/KITALAL.TXT"),
+    ) else {
+        return;
+    };
+    let exe = GameExe::parse(prg).unwrap();
+    let texts = Texts::parse(&messages, &kitalal);
+    assert_eq!(texts.inventions[4], "The Miner Station is invented");
+    let mut state = GameState::new_game(&exe, &init, 7).unwrap();
+    let pop = |s: &GameState| {
+        let r = s.body(1, 5).unwrap();
+        u32::from_le_bytes([r[0xd], r[0xe], r[0xf], r[0x10]])
+    };
+    // A mine being built on New Earth.
+    let mine = exe.building_type(4).unwrap();
+    let n = state.add_building(&mine, 4, (1, 5, 0), (1, 1), state.body(1, 5).unwrap()[0x15], |n| n / 2).unwrap();
+    let (money, people) = (state.money(), pop(&state));
+    let mut seed = 12345u32;
+    let mut random = |n: u16| {
+        seed = seed.wrapping_mul(0x0808_8405).wrapping_add(1);
+        ((u64::from(seed) * u64::from(n)) >> 32) as u16
+    };
+    let mut reports = Vec::new();
+    for _ in 0..24 * 60 {
+        state.advance_hour();
+        reports.extend(state.simulate_hour(&exe, &texts, &mut random));
+    }
+    println!("money {money} -> {}, people {people} -> {}", state.money(), pop(&state));
+    println!("mine left {}", state.buildings()[n - 1][6]);
+    for r in &reports {
+        println!("{r}");
+    }
+    assert_eq!(state.buildings()[n - 1][6], 0, "the mine got built");
+    assert!(state.money() > money, "taxes came in");
+    assert!(pop(&state) > 1000);
+}
+
+#[test]
+fn space_battle_runs_to_the_end() {
+    use reunion_formats::{battle::SpaceBattle, state::UnitList};
+    let (Some(prg), Some(init)) = (game_file("GRWAR/REUNION.PRG"), game_file("SAVE/INIT")) else {
+        return;
+    };
+    let exe = GameExe::parse(prg).unwrap();
+    let mut state = GameState::new_game(&exe, &init, 3).unwrap();
+    // A group of 40 hunters with lasers at Jade, the Jaanosians' planet,
+    // at war with them.
+    let n = state.add_group().unwrap();
+    let group = state.unit_mut(UnitList::Groups, n).unwrap();
+    (group[0x13], group[0x14], group[0x15], group[0x16]) = (1, 7, 0, 2);
+    group[0x1d..0x1f].copy_from_slice(&40i16.to_le_bytes());
+    group[0x1f..0x21].copy_from_slice(&40i16.to_le_bytes());
+    state.set_standing(2, reunion_formats::aliens::AT_WAR);
+    let mut seed = 99u32;
+    let mut random = |n: u16| {
+        seed = seed.wrapping_mul(0x0808_8405).wrapping_add(1);
+        ((u64::from(seed) * u64::from(n)) >> 32) as u16
+    };
+    let mut battle = SpaceBattle::new(&state, &exe, (1, 7, 0), &mut random).unwrap();
+    assert_eq!(battle.flying[0], 40);
+    assert!(battle.flying[1] > 0, "the Jaanosians' fleet and defences");
+    let mut frames = 0;
+    while !battle.over && frames < 200_000 {
+        battle.frame(false, &mut random);
+        frames += 1;
+    }
+    assert!(battle.over, "over after {frames} frames");
+    for side in &battle.sides {
+        for ship in side {
+            assert!(ship.x < 200 && ship.y < 200, "{ship:?}");
+        }
+    }
+    let losses = battle.finish(&mut state, &exe);
+    println!("won {} in {frames} frames, losses {losses:?}", battle.won());
+    let left = i16::from_le_bytes(state.unit(UnitList::Groups, n).unwrap()[0x1d..0x1f].try_into().unwrap());
+    assert_eq!(i64::from(left) + i64::from(losses[0][0]), 40);
+}

@@ -231,6 +231,55 @@ const MESSAGE_LEN: usize = 0x35;
 pub const MAX_MESSAGES: usize = 15;
 const MESSAGE_TEXT_LEN: usize = 50;
 
+/// Units (FUN_2b8d_16d0): the heap buffer at 0xa2d0 holds two lists of 32
+/// records of 161 bytes, groups (ships and troops) then planet bases, with
+/// their counts at 0xa2c4 and 0xa2c6.
+const UNITS: u16 = 0xa2d0;
+const UNIT_COUNTS: [u16; 2] = [0xa2c4, 0xa2c6];
+pub const UNIT_LEN: usize = 0xa1;
+pub const MAX_UNITS: usize = 32;
+const UNIT_NAME_CAPACITY: usize = 17;
+
+/// Byte offsets in a unit record.
+pub mod unit {
+    /// 1 army group, 2 trade company, 3 secret forces, 4 satellite carrier,
+    /// 5 planet base.
+    pub const TYPE: usize = 0x00;
+    /// Pascal string, up to 17 characters.
+    pub const NAME: usize = 0x01;
+    pub const SYSTEM: usize = 0x13;
+    pub const PLANET: usize = 0x14;
+    pub const MOON: usize = 0x15;
+    /// 1-2 on a planet or in orbit, 4-6 travelling, 7 a base.
+    pub const STATUS: usize = 0x16;
+    /// Travel: u16 distance parts at 0x17 and 0x1b, u16 days at 0x19.
+    pub const TRAVEL_A: usize = 0x17;
+    pub const TRAVEL_DAYS: usize = 0x19;
+    pub const TRAVEL_B: usize = 0x1b;
+    /// Two slots of four unit kinds, 10 bytes each (a u16 number, then
+    /// per-kind values), from here and 0x45.
+    pub const SLOTS: usize = 0x1d;
+    pub const SLOT_LEN: usize = 0x28;
+    pub const KIND_LEN: usize = 10;
+}
+
+/// What happened to a group in an hour of travel.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TravelEvent {
+    /// The group reached its destination (now in orbit).
+    Arrived(usize),
+    /// ... which was an unexplored system's star: the system is known now
+    /// and its planets are on the map.
+    Explored(usize, u8),
+}
+
+/// The two unit lists.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum UnitList {
+    Groups = 0,
+    Bases = 1,
+}
+
 const INVENTIONS: (u16, usize) = (0x5dac, 53);
 const RACES: (u16, usize) = (0x6bce, 228);
 const CHARACTERS: (u16, usize) = (0x013a, 27);
@@ -257,6 +306,15 @@ pub struct Body<'a> {
 
 pub struct StarSystem<'a> {
     pub bodies: Vec<Body<'a>>,
+}
+
+/// How a body circles its star or planet on the galactic map.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Orbit {
+    /// Tenths of a degree per step.
+    pub speed: u8,
+    pub radius_x: u8,
+    pub radius_y: u8,
 }
 
 /// A fixed-size record whose first field is a Pascal string name.
@@ -301,6 +359,13 @@ impl GameState {
         }
         let mut random = BorlandRandom(seed);
         state.set_word(0x5d58, 6000 + random.below(400));
+        // FUN_2b8d_1d09: no groups, and the New Earth base (FUN_2b8d_17fd).
+        state.set_word(UNIT_COUNTS[0], 0);
+        state.set_word(UNIT_COUNTS[1], 1);
+        if let Some(base) = state.unit_mut(UnitList::Bases, 1) {
+            init_unit(base, 5, exe.ds_string(0x595d + 5 * 0x11).as_deref().unwrap_or(""));
+            base[unit::STATUS] = 7;
+        }
         Ok(state)
     }
 
@@ -315,6 +380,17 @@ impl GameState {
     pub fn byte(&self, address: u16) -> Option<u8> {
         let (block, offset) = self.locate(address)?;
         self.blocks[&block].get(offset).copied()
+    }
+
+    pub fn set_byte(&mut self, address: u16, value: u8) {
+        if let Some((block, offset)) = self.locate(address)
+            && let Some(byte) = self
+                .blocks
+                .get_mut(&block)
+                .and_then(|b| b.get_mut(offset))
+        {
+            *byte = value;
+        }
     }
 
     pub fn set_word(&mut self, address: u16, value: u16) {
@@ -440,6 +516,32 @@ impl GameState {
         self.byte(0x4815 + system as u16) == Some(1)
     }
 
+    /// A body's orbit on the galactic map, from bytes 10-12 of its name
+    /// record (FUN_357b_23db).
+    pub fn orbit(&self, system: usize, body: usize) -> Option<Orbit> {
+        let &(names, _, count) = STAR_SYSTEMS.get(system.checked_sub(1)?)?;
+        if body == 0 || body > count {
+            return None;
+        }
+        let record = self
+            .blocks
+            .get(&names)?
+            .get((body - 1) * BODY_NAME_LEN..body * BODY_NAME_LEN)?;
+        Some(Orbit {
+            speed: record[10],
+            radius_x: record[11],
+            radius_y: record[12],
+        })
+    }
+
+    /// What the galactic map shows of a planet (DS:0x47cd + 8 * system +
+    /// planet): negative hides it, 0 shows it with its moons unknown, 1 or
+    /// more shows its moons too.
+    pub fn planet_visibility(&self, system: usize, planet: usize) -> i8 {
+        self.byte(0x47cd + 8 * system as u16 + planet as u16)
+            .map_or(-1, |b| b as i8)
+    }
+
     /// The 65-byte record of a planet (1-based system and planet), for editing.
     pub fn planet_mut(&mut self, system: usize, planet: usize) -> Option<&mut [u8]> {
         let &(_, data, count) = STAR_SYSTEMS.get(system.checked_sub(1)?)?;
@@ -448,6 +550,234 @@ impl GameState {
         }
         let start = (planet - 1) * BODY_LEN;
         self.blocks.get_mut(&data)?.get_mut(start..start + BODY_LEN)
+    }
+
+    /// Number of units in a list.
+    pub fn unit_count(&self, list: UnitList) -> usize {
+        (self.word(UNIT_COUNTS[list as usize]).unwrap_or(0) as usize).min(MAX_UNITS)
+    }
+
+    /// A unit's record (1-based), if it's in use.
+    pub fn unit(&self, list: UnitList, n: usize) -> Option<&[u8]> {
+        if n == 0 || n > self.unit_count(list) {
+            return None;
+        }
+        let start = (list as usize * MAX_UNITS + n - 1) * UNIT_LEN;
+        self.blocks.get(&UNITS)?.get(start..start + UNIT_LEN)
+    }
+
+    pub fn unit_mut(&mut self, list: UnitList, n: usize) -> Option<&mut [u8]> {
+        if n == 0 || n > self.unit_count(list) {
+            return None;
+        }
+        let start = (list as usize * MAX_UNITS + n - 1) * UNIT_LEN;
+        self.blocks.get_mut(&UNITS)?.get_mut(start..start + UNIT_LEN)
+    }
+
+    /// NEW UNIT (FUN_26fe_001b, FUN_2b8d_16d0): a new army group called "New
+    /// Group" at New Earth. Returns its number, or None with 32 groups.
+    pub fn add_group(&mut self) -> Option<usize> {
+        let n = self.unit_count(UnitList::Groups) + 1;
+        if n > MAX_UNITS {
+            return None;
+        }
+        self.set_word(UNIT_COUNTS[0], n as u16);
+        init_unit(self.unit_mut(UnitList::Groups, n)?, 1, "New Group");
+        Some(n)
+    }
+
+    /// A new base at a planet or moon (FUN_2841_0060 founding a colony), made
+    /// the selected unit. None with 32 bases.
+    pub fn add_base(&mut self, (system, planet, moon): (u8, u8, u8)) -> Option<usize> {
+        let n = self.unit_count(UnitList::Bases) + 1;
+        if n > MAX_UNITS {
+            return None;
+        }
+        self.set_word(UNIT_COUNTS[1], n as u16);
+        let base = self.unit_mut(UnitList::Bases, n)?;
+        init_unit(base, 5, "");
+        base[unit::SYSTEM] = system;
+        base[unit::PLANET] = planet;
+        base[unit::MOON] = moon;
+        base[unit::STATUS] = 7;
+        self.set_word(0xa2ce, 1);
+        for selection in [0xa2c2, 0xa2c8, 0xa2cc] {
+            self.set_word(selection, n as u16);
+        }
+        Some(n)
+    }
+
+    /// Drops the last group (ABORT while creating it).
+    pub fn remove_last_group(&mut self) {
+        let n = self.unit_count(UnitList::Groups);
+        self.set_word(UNIT_COUNTS[0], n.saturating_sub(1) as u16);
+    }
+
+    /// The base at a planet or moon (FUN_2b8d_1c9f).
+    pub fn base_at(&self, system: u8, planet: u8, moon: u8) -> Option<usize> {
+        (1..=self.unit_count(UnitList::Bases)).rev().find(|&n| {
+            self.unit(UnitList::Bases, n).is_some_and(|b| {
+                b[unit::SYSTEM] == system && b[unit::PLANET] == planet && b[unit::MOON] == moon
+            })
+        })
+    }
+
+    /// DISBAND UNIT (FUN_29b9_0b93): a group's ships and troops (army groups;
+    /// the ships of secret forces) go to the base where it is, and the units
+    /// after it move up. Clears the selection.
+    pub fn disband_unit(&mut self, list: UnitList, n: usize) {
+        let count = self.unit_count(list);
+        if n == 0 || n > count {
+            return;
+        }
+        if list == UnitList::Groups
+            && let Some(group) = self.unit(list, n).map(<[u8]>::to_vec)
+            && let Some(base) =
+                self.base_at(group[unit::SYSTEM], group[unit::PLANET], group[unit::MOON])
+            && let Some(base) = self.unit_mut(UnitList::Bases, base)
+        {
+            for slot in 1..=2 {
+                if group[unit::TYPE] != 1 && !(group[unit::TYPE] == 3 && slot == 1) {
+                    continue;
+                }
+                for kind in 0..4 {
+                    for value in 0..5 {
+                        let at = unit::SLOTS
+                            + (slot - 1) * unit::SLOT_LEN
+                            + kind * unit::KIND_LEN
+                            + 2 * value;
+                        let sum = u16::from_le_bytes([base[at], base[at + 1]])
+                            .wrapping_add(u16::from_le_bytes([group[at], group[at + 1]]));
+                        base[at..at + 2].copy_from_slice(&sum.to_le_bytes());
+                    }
+                }
+            }
+        }
+        if let Some(units) = self.blocks.get_mut(&UNITS) {
+            let first = list as usize * MAX_UNITS;
+            let start = (first + n - 1) * UNIT_LEN;
+            let end = (first + count) * UNIT_LEN;
+            units.copy_within(start + UNIT_LEN..end, start);
+        }
+        self.set_word(UNIT_COUNTS[list as usize], (count - 1) as u16);
+        if self.word(0xa2ce) == Some(list as u16) {
+            let shown = self.word(0xa2c2).unwrap_or(1);
+            self.set_word(0xa2c2, shown.saturating_sub(1));
+        }
+        for selection in [0xa2c8, 0xa2ca, 0xa2cc] {
+            self.set_word(selection, 0);
+        }
+    }
+
+    /// Sends a group on its way (FUN_29b9_0e66): its location becomes the
+    /// destination at once; the trip is two distances and days in between,
+    /// counted down each hour. `random(n)` is the game's Random(n).
+    pub fn start_travel(
+        &mut self,
+        n: usize,
+        (system, planet, moon): (u8, u8, u8),
+        mut random: impl FnMut(u16) -> u16,
+    ) {
+        let Some(group) = self.unit_mut(UnitList::Groups, n) else {
+            return;
+        };
+        let here = (group[unit::SYSTEM], group[unit::PLANET], group[unit::MOON]);
+        if here == (system, planet, moon) {
+            return;
+        }
+        let (a, days, b) = if here.0 != system {
+            (200 + random(50), 1, 200 + random(50))
+        } else if here.1 == planet {
+            (0, 0, 80 + random(20))
+        } else {
+            (0, 0, 150 + random(50))
+        };
+        let words = [(unit::TRAVEL_A, a), (unit::TRAVEL_DAYS, days), (unit::TRAVEL_B, b)];
+        for (at, value) in words {
+            group[at..at + 2].copy_from_slice(&value.to_le_bytes());
+        }
+        group[unit::STATUS] = if here.0 != system { 6 } else { 4 };
+        group[unit::SYSTEM] = system;
+        group[unit::PLANET] = planet;
+        group[unit::MOON] = moon;
+    }
+
+    /// An hour of travel for every moving group (FUN_1b8a_2a0e): the first
+    /// distance and the last go down by the pilots' level + 1, the days in
+    /// between by one; status 6, 5, 4 on the way, 2 (in orbit) on arrival.
+    pub fn travel_hour(&mut self) -> Vec<TravelEvent> {
+        let speed = self.word(0x95a4).unwrap_or(0) as i16 + 1;
+        let mut events = Vec::new();
+        for n in 1..=self.unit_count(UnitList::Groups) {
+            let Some(group) = self.unit_mut(UnitList::Groups, n) else {
+                continue;
+            };
+            if !(4..=6).contains(&group[unit::STATUS]) {
+                continue;
+            }
+            let get = |g: &[u8], at: usize| i16::from_le_bytes([g[at], g[at + 1]]);
+            let (mut a, mut days, mut b) = (
+                get(group, unit::TRAVEL_A),
+                get(group, unit::TRAVEL_DAYS),
+                get(group, unit::TRAVEL_B),
+            );
+            if a > 0 {
+                a -= speed;
+            } else if days > 0 {
+                days -= 1;
+            } else if b > 0 {
+                b -= speed;
+            }
+            let (a, days, b) = (a.max(0), days.max(0), b.max(0));
+            for (at, value) in [(unit::TRAVEL_A, a), (unit::TRAVEL_DAYS, days), (unit::TRAVEL_B, b)] {
+                group[at..at + 2].copy_from_slice(&value.to_le_bytes());
+            }
+            group[unit::STATUS] = if b == 0 {
+                2
+            } else if days == 0 {
+                4
+            } else if a == 0 {
+                5
+            } else {
+                6
+            };
+            if b == 0 {
+                events.push(TravelEvent::Arrived(n));
+                let (system, planet) = (group[unit::SYSTEM], group[unit::PLANET]);
+                if planet == 0 && self.byte(0x4815 + u16::from(system)) == Some(0) {
+                    self.explore(n, system);
+                    events.push(TravelEvent::Explored(n, system));
+                }
+            }
+        }
+        events
+    }
+
+    /// A group reached an unexplored system: it's known now, the planets
+    /// nobody knew of are on the map, and the group is at the last of them.
+    fn explore(&mut self, n: usize, system: u8) {
+        self.set_byte(0x4815 + u16::from(system), 1);
+        let mut last = 0;
+        for planet in 1..=8u8 {
+            let at = 0x47cd + 8 * u16::from(system) + u16::from(planet);
+            if self.byte(at) == Some(0xff) {
+                self.set_byte(at, 0);
+                last = planet;
+            }
+        }
+        if last > 0
+            && let Some(group) = self.unit_mut(UnitList::Groups, n)
+        {
+            group[unit::PLANET] = last;
+            group[unit::MOON] = 0;
+        }
+    }
+
+    /// Renames a unit, cut to 17 characters.
+    pub fn rename_unit(&mut self, list: UnitList, n: usize, name: &str) {
+        if let Some(record) = self.unit_mut(list, n) {
+            set_pascal(&mut record[unit::NAME..unit::SYSTEM], name);
+        }
     }
 
     /// The message log, oldest first: (kind, text). Kinds 1 and 99 are shown
@@ -477,6 +807,13 @@ impl GameState {
         record[2] = text.len() as u8;
         record[3..3 + text.len()].copy_from_slice(&text);
         self.set_word(MESSAGE_COUNT, count as u16 + 1);
+    }
+
+    /// An invention's 53-byte record (1-based), for editing its status.
+    pub fn invention_mut(&mut self, invention: usize) -> Option<&mut [u8]> {
+        let (address, len) = INVENTIONS;
+        let start = invention.checked_sub(1)? * len;
+        self.blocks.get_mut(&address)?.get_mut(start..start + len)
     }
 
     pub fn inventions(&self) -> Vec<Named<'_>> {
@@ -523,6 +860,26 @@ impl BorlandRandom {
 }
 
 /// A length-prefixed string, as Borland Pascal stores them.
+/// FUN_2b8d_16d0: a fresh unit of `kind` at New Earth, on the planet, empty.
+fn init_unit(record: &mut [u8], kind: u8, name: &str) {
+    record.fill(0);
+    record[unit::TYPE] = kind;
+    set_pascal(&mut record[unit::NAME..unit::SYSTEM], name);
+    record[unit::SYSTEM] = 1;
+    record[unit::PLANET] = 5;
+    record[unit::MOON] = 0;
+    record[unit::STATUS] = 1;
+}
+
+/// Writes a Pascal string into `field` (length byte plus characters), cut to fit.
+fn set_pascal(field: &mut [u8], text: &str) {
+    let bytes = text.as_bytes();
+    let len = bytes.len().min(field.len() - 1).min(UNIT_NAME_CAPACITY);
+    field.fill(0);
+    field[0] = len as u8;
+    field[1..=len].copy_from_slice(&bytes[..len]);
+}
+
 fn pascal(bytes: &[u8]) -> String {
     let len = bytes.first().copied().unwrap_or(0) as usize;
     bytes

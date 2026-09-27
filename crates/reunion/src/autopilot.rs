@@ -10,8 +10,17 @@
 //! - `press <button>` - `up`, `down`, `left`, `right`, `confirm`, `back`,
 //!   `scroll-up`, `scroll-down`, `scroll-left`, `scroll-right`; goes through
 //!   the input actions like a real button press
+//! - `click <x> <y>` - activate the hotspot at game coordinates, like a
+//!   mouse click
+//! - `alt <x> <y>` - the other use of the hotspot there (see `Alternate`)
+//! - `type <text>` - finish the text being typed with `text`
+//! - `byte <address> <value>` / `word <address> <value>` - set game state
+//!   at a data segment address (hex, like `a2d4`), e.g. to unlock things
 //! - `message <text>` / `alert <text>` - add a normal / highlighted message
 //!   to the log, like the game does
+//! - `hours <n>` - let n game hours pass at once (message boxes queue up)
+//! - `army <system> <planet> <moon> <n>` - a new army group in orbit there
+//!   with n hunters and lasers
 //! - `wait <seconds>`
 //! - `shot <name>` - saves `<dir>/<name>.png`
 //!
@@ -28,10 +37,12 @@ use bevy::render::render_resource::TextureFormat;
 use bevy::render::view::screenshot::{Screenshot, save_to_disk};
 use bevy_enhanced_input::prelude::*;
 
+use crate::focus::{Activated, AlternateUse, Focus, Hotspot};
 use crate::game::Game;
 use crate::hero::Hero;
 use crate::input::{Back, Confirm, Navigate, Scroll};
 use crate::screen::GameScreen;
+use crate::text::TextEditing;
 use crate::transition::GoTo;
 
 pub struct AutopilotPlugin;
@@ -100,7 +111,19 @@ fn screen_named(name: &str) -> Option<GameScreen> {
         "planet-info" => GameScreen::PlanetInfo,
         "messages" => GameScreen::Messages,
         "disk" => GameScreen::DiskOperations,
+        "load" => GameScreen::LoadGame,
+        "research" => GameScreen::Research,
+        "commanders" => GameScreen::Commanders,
         "computer" => GameScreen::MainComputer,
+        "map" => GameScreen::GalacticMap,
+        "credits" => GameScreen::Credits,
+        "ships" => GameScreen::ShipInfo,
+        "create" => GameScreen::CreateUnit,
+        "group" => GameScreen::Group,
+        "info" => GameScreen::InfoBuy,
+        "mine" => GameScreen::ResourceMine,
+        "cockpit" => GameScreen::ControlPanel,
+        "transfer" => GameScreen::Transfer,
         _ => return None,
     })
 }
@@ -113,6 +136,11 @@ fn run(
     scroll: Single<Entity, With<Action<Scroll>>>,
     confirm: Single<Entity, With<Action<Confirm>>>,
     back: Single<Entity, With<Action<Back>>>,
+    hotspots: Query<(Entity, &Hotspot)>,
+    mut focus: ResMut<Focus>,
+    editing: Option<ResMut<TextEditing>>,
+    handle: Res<crate::game_data::GameDataHandle>,
+    data: Res<Assets<crate::game_data::GameData>>,
     mut exit: MessageWriter<AppExit>,
     mut commands: Commands,
 ) {
@@ -165,6 +193,74 @@ fn run(
             commands
                 .entity(entity)
                 .insert(ActionMock::once(TriggerState::Fired, value));
+        }
+        "byte" | "word" => {
+            let mut parts = arg.split_whitespace();
+            let address = parts.next().and_then(|a| u16::from_str_radix(a, 16).ok());
+            let value = parts.next().and_then(|v| v.parse::<u16>().ok());
+            match (address, value, game.as_mut()) {
+                (Some(address), Some(value), Some(game)) if command == "word" => {
+                    game.0.set_word(address, value);
+                }
+                (Some(address), Some(value), Some(game)) => {
+                    game.0.set_byte(address, value as u8);
+                }
+                _ => error!("autopilot: {command} needs an address, a value and a game"),
+            }
+        }
+        "army" => {
+            let v: Vec<u8> = arg.split_whitespace().filter_map(|n| n.parse().ok()).collect();
+            let (Some(game), [s, p, m, hunters, ..]) = (game.as_mut(), v.as_slice()) else {
+                error!("autopilot: army needs a game and system planet moon hunters");
+                return;
+            };
+            let Some(n) = game.0.add_group() else { return };
+            if let Some(g) = game.0.unit_mut(reunion_formats::state::UnitList::Groups, n) {
+                (g[0x13], g[0x14], g[0x15], g[0x16]) = (*s, *p, *m, 2);
+                g[0x1d..0x1f].copy_from_slice(&u16::from(*hunters).to_le_bytes());
+                g[0x1f..0x21].copy_from_slice(&u16::from(*hunters).to_le_bytes());
+            }
+        }
+        "hours" => {
+            let (Some(game), Some(data)) = (game.as_mut(), data.get(&handle.0)) else {
+                error!("autopilot: hours needs a game");
+                return;
+            };
+            for _ in 0..arg.parse::<u32>().unwrap_or(1) {
+                crate::clock::pass_hour(game, data, &mut commands);
+            }
+        }
+        "type" => match editing {
+            Some(mut editing) => {
+                editing.text = arg.to_string();
+                editing.done = true;
+            }
+            None => error!("autopilot: nothing is being typed"),
+        },
+        "click" | "alt" => {
+            let mut numbers = arg.split_whitespace().filter_map(|n| n.parse::<f32>().ok());
+            let (Some(x), Some(y)) = (numbers.next(), numbers.next()) else {
+                error!("autopilot: click needs x and y");
+                return;
+            };
+            match hotspots
+                .iter()
+                .filter(|(_, h)| h.rect.contains(Vec2::new(x, y)))
+                .min_by(|(_, a), (_, b)| {
+                    let area = |r: Rect| r.width() * r.height();
+                    area(a.rect).total_cmp(&area(b.rect))
+                })
+            {
+                Some((entity, _)) => {
+                    focus.0 = Some(entity);
+                    if command == "alt" {
+                        commands.trigger(AlternateUse(entity));
+                    } else {
+                        commands.trigger(Activated(entity));
+                    }
+                }
+                None => error!("autopilot: no hotspot at {x}, {y}"),
+            }
         }
         "message" | "alert" => {
             if let Some(game) = game.as_mut() {

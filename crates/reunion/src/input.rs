@@ -35,6 +35,11 @@ pub struct Confirm;
 #[action_output(bool)]
 pub struct Back;
 
+/// The other use of a hotspot, like taking one away where confirming adds one.
+#[derive(InputAction)]
+#[action_output(bool)]
+pub struct Alternate;
+
 /// Left mouse button: activates the hotspot under the cursor.
 #[derive(InputAction)]
 #[action_output(bool)]
@@ -63,6 +68,10 @@ fn spawn_ui_input(mut commands: Commands) {
             (
                 Action::<Back>::new(),
                 bindings![KeyCode::Escape, KeyCode::Backspace, GamepadButton::East, MouseButton::Right],
+            ),
+            (
+                Action::<Alternate>::new(),
+                bindings![KeyCode::Delete, KeyCode::Minus, KeyCode::NumpadSubtract, GamepadButton::West, MouseButton::Middle],
             ),
             (
                 Action::<Click>::new(),

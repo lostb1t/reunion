@@ -31,6 +31,23 @@ pub enum GameScreen {
     Messages,
     DiskOperations,
     MainComputer,
+    /// The disk screen opened from the main menu's LOAD GAME (screen 38:
+    /// only LOAD and EXIT TO DOS).
+    LoadGame,
+    Research,
+    Commanders,
+    GalacticMap,
+    Credits,
+    ShipInfo,
+    CreateUnit,
+    Group,
+    InfoBuy,
+    ControlPanel,
+    Transfer,
+    StaffTalk,
+    ResourceMine,
+    Colonize,
+    SpaceBattle,
 }
 
 impl GameScreen {
@@ -50,13 +67,35 @@ impl GameScreen {
             GameScreen::DiskOperations => Some(12),
             GameScreen::PlanetMain => Some(20),
             GameScreen::MainComputer => Some(37),
+            GameScreen::LoadGame => Some(38),
+            GameScreen::Research => Some(3),
+            GameScreen::Commanders => Some(2),
+            GameScreen::GalacticMap => Some(7),
+            GameScreen::Credits => Some(10),
+            GameScreen::ShipInfo => Some(16),
+            GameScreen::CreateUnit => Some(21),
+            GameScreen::Group => Some(22),
+            GameScreen::InfoBuy => Some(5),
+            GameScreen::ControlPanel => Some(17),
+            GameScreen::Transfer => Some(13),
+            GameScreen::StaffTalk => Some(24),
+            GameScreen::ResourceMine => Some(4),
+            GameScreen::Colonize => Some(28),
+            GameScreen::SpaceBattle => Some(29),
             _ => None,
         }
     }
 
     /// Screens that stop game time, like the original clearing DS:0x95f8.
     pub fn pauses_time(self) -> bool {
-        matches!(self, GameScreen::DiskOperations)
+        matches!(
+            self,
+            GameScreen::DiskOperations
+                | GameScreen::LoadGame
+                | GameScreen::Colonize
+                | GameScreen::CreateUnit
+                | GameScreen::SpaceBattle
+        )
     }
 
     pub fn from_number(number: u8) -> Option<Self> {
@@ -66,7 +105,22 @@ impl GameScreen {
     }
 
     /// All in-game screens (the ones with the icon bar and text strip).
-    pub const IN_GAME: [GameScreen; 6] = [
+    pub const IN_GAME: [GameScreen; 21] = [
+        GameScreen::SpaceBattle,
+        GameScreen::Colonize,
+        GameScreen::ResourceMine,
+        GameScreen::StaffTalk,
+        GameScreen::ControlPanel,
+        GameScreen::Transfer,
+        GameScreen::InfoBuy,
+        GameScreen::ShipInfo,
+        GameScreen::CreateUnit,
+        GameScreen::Group,
+        GameScreen::Credits,
+        GameScreen::GalacticMap,
+        GameScreen::LoadGame,
+        GameScreen::Commanders,
+        GameScreen::Research,
         GameScreen::MainScreen,
         GameScreen::PlanetMain,
         GameScreen::PlanetInfo,

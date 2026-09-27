@@ -47,6 +47,18 @@ impl Pic {
             })
             .collect()
     }
+
+    /// Like [`Pic::to_rgba`], but palette index 0 is transparent: how the
+    /// game's masked blits draw sprites.
+    pub fn to_rgba_masked(&self) -> Vec<u8> {
+        self.pixels
+            .iter()
+            .flat_map(|&i| {
+                let [r, g, b] = self.palette[i as usize];
+                [r, g, b, if i == 0 { 0 } else { 255 }]
+            })
+            .collect()
+    }
 }
 
 pub fn decode(data: &[u8]) -> Result<Pic, PicError> {

@@ -72,6 +72,47 @@ pub struct SystemLayout {
     pub moons: Vec<Vec<u8>>,
 }
 
+/// Unit kinds a unit type carries, one category (warships, merchant ships,
+/// troops or satellites) of FUN_26fe_093b's tables.
+#[derive(Debug, Clone, PartialEq)]
+pub struct UnitCategory {
+    /// 1 warships, 2 merchant ships, 3 troops, 4 satellites.
+    pub number: usize,
+    /// Which of the record's two slots holds the numbers (1 or 2).
+    pub slot: usize,
+    pub kinds: Vec<UnitKind>,
+    /// Equipment the kinds can be fitted with (weapons, satellites).
+    pub equipment: Vec<Equipment>,
+    /// How many equipment columns the GROUP screen shows (DS:0xbcd).
+    pub columns: usize,
+}
+
+/// A ship or troop kind: a 25-byte catalog entry.
+#[derive(Debug, Clone, PartialEq)]
+pub struct UnitKind {
+    pub name: String,
+    /// The invention that makes it (1-based), which also holds New Earth's stock.
+    pub invention: u8,
+    /// Index of a base's stock word (base record + 0x83 + 2 * index).
+    pub stock_index: u8,
+    /// Where GROUP writes its name (with `name_columns`) and stock.
+    pub name_at: (u16, u8),
+    pub name_columns: u8,
+    pub stock_at: (u16, u8),
+    /// How many of each equipment one of these can carry.
+    pub capacity: [u8; 4],
+}
+
+/// Equipment: a 14-byte catalog entry.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Equipment {
+    pub name: String,
+    pub invention: u8,
+    pub stock_index: u8,
+    pub name_at: (u16, u8),
+    pub stock_at: (u16, u8),
+}
+
 /// A clickable area of the main room.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RoomHotspot {
@@ -113,6 +154,16 @@ impl GameExe {
             .get(pos + 1..pos + 1 + len)
             .ok_or(ExeError::OutOfRange)?;
         Ok(bytes.iter().map(|&b| b as char).collect())
+    }
+
+    /// A Pascal string in the data segment.
+    pub fn ds_string(&self, offset: u16) -> Option<String> {
+        self.pascal_string(DS, offset).ok()
+    }
+
+    /// A Pascal string in a code segment (Ghidra segment numbering).
+    pub fn code_string(&self, segment: u16, offset: u16) -> Option<String> {
+        self.pascal_string(segment, offset).ok()
     }
 
     /// Initial bytes of the data segment at `offset`, if the executable
@@ -192,6 +243,80 @@ impl GameExe {
                 Ok(SystemLayout { name, moons })
             })
             .collect()
+    }
+
+    /// The categories a unit type (1-5) carries: DS:0xb3b + 0x14 * type + k
+    /// says whether it carries category k, DS:0xbb9 + 4 * type + k in which
+    /// slot, and the far pointer at DS:0xb3c + 0x14 * type + 4 * k leads to
+    /// the kinds: a count, then 25-byte entries from +0x3a with the name
+    /// (a Pascal string) at +2.
+    pub fn unit_categories(&self, unit_type: u8) -> Result<Vec<UnitCategory>, ExeError> {
+        let t = u16::from(unit_type);
+        let mut categories = Vec::new();
+        for k in 1..=4u16 {
+            let carried = self.ds_byte(0xb3b + 0x14 * t + k)?;
+            if carried == 0 {
+                continue;
+            }
+            let slot = self.ds_byte(0xbb9 + 4 * t + k)? as usize;
+            let columns = self.ds_byte(0xbcd + 4 * t + k)? as usize;
+            let list = self.ds_word(0xb3c + 0x14 * t + 4 * k)?;
+            let count = self.ds_byte(list)? as u16;
+            let fitted = self.ds_byte(list + 1)? as u16;
+            let at = |pos: u16| -> Result<(u16, u8), ExeError> {
+                Ok((self.ds_word(pos)?, self.ds_byte(pos + 2)?))
+            };
+            let kinds = (1..=count)
+                .map(|i| {
+                    let e = list + 25 * i + 0x21;
+                    Ok(UnitKind {
+                        name: self.pascal_string(DS, e + 2)?,
+                        invention: self.ds_byte(e)?,
+                        stock_index: self.ds_byte(e + 1)?,
+                        name_at: at(e + 0x0e)?,
+                        stock_at: at(e + 0x11)?,
+                        name_columns: self.ds_byte(e + 0x14)?,
+                        capacity: [
+                            self.ds_byte(e + 0x15)?,
+                            self.ds_byte(e + 0x16)?,
+                            self.ds_byte(e + 0x17)?,
+                            self.ds_byte(e + 0x18)?,
+                        ],
+                    })
+                })
+                .collect::<Result<_, ExeError>>()?;
+            let equipment = (1..=fitted)
+                .map(|j| {
+                    let e = list + 14 * j - 12;
+                    Ok(Equipment {
+                        name: self.pascal_string(DS, e + 2)?,
+                        invention: self.ds_byte(e)?,
+                        stock_index: self.ds_byte(e + 1)?,
+                        name_at: at(e + 8)?,
+                        stock_at: at(e + 0x0b)?,
+                    })
+                })
+                .collect::<Result<_, ExeError>>()?;
+            categories.push(UnitCategory {
+                number: k as usize,
+                slot,
+                kinds,
+                equipment,
+                columns,
+            });
+        }
+        Ok(categories)
+    }
+
+    /// Satellite names carried by a satellite carrier (DS:0x59b8 + 12 * n).
+    pub fn satellite_names(&self) -> Result<Vec<String>, ExeError> {
+        (1..=4)
+            .map(|i| Ok(self.pascal_string(DS, 0x59b8 + 12 * i)?.trim_end().to_string()))
+            .collect()
+    }
+
+    fn ds_byte(&self, offset: u16) -> Result<u8, ExeError> {
+        Ok(self.data[self.at(DS, offset)?])
     }
 
     /// Characters in the order of the glyphs in CHARSET1.PIC.

@@ -7,6 +7,9 @@
 //! is no file. LOAD needs a used slot; SAVE writes the slot; both return to the
 //! main screen. Time stops on this screen.
 //!
+//! LOAD GAME in the main menu opens the same screen as screen 38, whose icon
+//! bar only has LOAD and EXIT TO DOS (FUN_1a3e_0008 picks set 0x26 then).
+//!
 //! Saves use the original format, so they work in both this and the DOS game.
 //! The original asks for a name when saving; this names the save after the
 //! game date for now, which works without a keyboard.
@@ -29,9 +32,12 @@ pub struct DiskPlugin;
 impl Plugin for DiskPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(OnEnter(GameScreen::DiskOperations), enter)
+            .add_systems(OnEnter(GameScreen::LoadGame), enter)
             .add_systems(
                 Update,
-                update_slot_texts.run_if(in_state(GameScreen::DiskOperations)),
+                update_slot_texts.run_if(
+                    in_state(GameScreen::DiskOperations).or_else(in_state(GameScreen::LoadGame)),
+                ),
             )
             .add_observer(select_slot)
             .add_observer(press_button)
@@ -93,8 +99,8 @@ fn read_slot_name(slot: u8) -> Option<String> {
     Some(data.get(1..1 + len)?.iter().map(|&b| b as char).collect())
 }
 
-fn enter(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let scoped = DespawnOnExit(GameScreen::DiskOperations);
+fn enter(mut commands: Commands, asset_server: Res<AssetServer>, screen: Res<State<GameScreen>>) {
+    let scoped = DespawnOnExit(*screen.get());
     commands.insert_resource(Slots {
         names: (1..=SLOTS).map(read_slot_name).collect(),
         selected: 1,
@@ -178,7 +184,10 @@ fn use_action(
     mut exit: MessageWriter<AppExit>,
     mut commands: Commands,
 ) {
-    if *screen.get() != GameScreen::DiskOperations {
+    if !matches!(
+        screen.get(),
+        GameScreen::DiskOperations | GameScreen::LoadGame
+    ) {
         return;
     }
     let Some(mut slots) = slots else { return };

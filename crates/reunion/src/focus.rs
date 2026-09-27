@@ -6,7 +6,9 @@ use bevy::sprite::Anchor;
 use bevy::window::PrimaryWindow;
 use bevy_enhanced_input::prelude::*;
 
-use crate::input::{Click, Confirm, Navigate};
+use crate::input::{Alternate, Click, Confirm, Navigate};
+use crate::popup::PopupOpen;
+use crate::text::TextEditing;
 use crate::pic::rgba_image;
 use crate::screen::{place, world_to_game};
 
@@ -18,6 +20,7 @@ impl Plugin for FocusPlugin {
             .init_resource::<Cursor>()
             .add_observer(navigate)
             .add_observer(confirm)
+            .add_observer(alternate)
             .add_observer(click)
             .add_systems(
                 Update,
@@ -25,6 +28,7 @@ impl Plugin for FocusPlugin {
                     track_cursor,
                     focus_default,
                     drop_stale_focus,
+                    follow_hotspots,
                     build_hover_sprites,
                     show_focus,
                 )
@@ -65,12 +69,18 @@ pub struct Focus(pub Option<Entity>);
 #[derive(Resource, Default)]
 struct Cursor(Option<Vec2>);
 
+/// The hover sprite is built, for a hotspot of this size.
 #[derive(Component)]
-struct HoverReady;
+struct HoverReady(Vec2);
 
 /// A hotspot was activated by click, Enter or the gamepad.
 #[derive(Event)]
 pub struct Activated(pub Entity);
+
+/// A hotspot's other use (see [`Alternate`]), on the focused hotspot or the
+/// one under the mouse.
+#[derive(Event)]
+pub struct AlternateUse(pub Entity);
 
 pub fn hotspot(rect: Rect, hover: Hover) -> impl Bundle {
     (
@@ -84,9 +94,14 @@ fn hotspot_at<'a>(
     pos: Vec2,
     hotspots: impl IntoIterator<Item = (Entity, &'a Hotspot)>,
 ) -> Option<Entity> {
+    // The smallest wins where hotspots overlap (people in front of the room).
     hotspots
         .into_iter()
-        .find(|(_, h)| h.rect.contains(pos))
+        .filter(|(_, h)| h.rect.contains(pos))
+        .min_by(|(_, a), (_, b)| {
+            let area = |r: Rect| r.width() * r.height();
+            area(a.rect).total_cmp(&area(b.rect))
+        })
         .map(|(e, _)| e)
 }
 
@@ -184,9 +199,36 @@ fn next_in_direction<T: Copy>(
         .or_else(|| best(false, false))
 }
 
-fn confirm(_: On<Start<Confirm>>, focus: Res<Focus>, mut commands: Commands) {
+fn confirm(
+    _: On<Start<Confirm>>,
+    focus: Res<Focus>,
+    editing: Option<Res<TextEditing>>,
+    popup: Option<Res<PopupOpen>>,
+    mut commands: Commands,
+) {
+    if editing.is_some() || popup.is_some() {
+        return;
+    }
     if let Some(entity) = focus.0 {
         commands.trigger(Activated(entity));
+    }
+}
+
+fn alternate(
+    _: On<Start<Alternate>>,
+    cursor: Res<Cursor>,
+    focus: Res<Focus>,
+    hotspots: Query<(Entity, &Hotspot)>,
+    editing: Option<Res<TextEditing>>,
+    popup: Option<Res<PopupOpen>>,
+    mut commands: Commands,
+) {
+    if editing.is_some() || popup.is_some() {
+        return;
+    }
+    let under_mouse = cursor.0.and_then(|pos| hotspot_at(pos, hotspots));
+    if let Some(entity) = under_mouse.or(focus.0) {
+        commands.trigger(AlternateUse(entity));
     }
 }
 
@@ -195,8 +237,12 @@ fn click(
     cursor: Res<Cursor>,
     hotspots: Query<(Entity, &Hotspot)>,
     mut focus: ResMut<Focus>,
+    popup: Option<Res<PopupOpen>>,
     mut commands: Commands,
 ) {
+    if popup.is_some() {
+        return;
+    }
     if let Some(pos) = cursor.0
         && let Some(entity) = hotspot_at(pos, hotspots)
     {
@@ -214,6 +260,24 @@ fn focus_default(added: Query<Entity, Added<DefaultFocus>>, mut focus: ResMut<Fo
 fn drop_stale_focus(hotspots: Query<(), With<Hotspot>>, mut focus: ResMut<Focus>) {
     if focus.0.is_some_and(|e| !hotspots.contains(e)) {
         focus.0 = None;
+    }
+}
+
+/// Hotspots may move (planets orbiting on the galactic map): their hover
+/// sprite follows, and is rebuilt when the size changes.
+fn follow_hotspots(
+    mut moved: Query<(Entity, &Hotspot, &mut Transform, Option<&HoverReady>), Changed<Hotspot>>,
+    mut commands: Commands,
+) {
+    for (entity, hotspot, mut transform, ready) in &mut moved {
+        transform.translation = place(hotspot.rect.min, transform.translation.z).translation;
+        if ready.is_some_and(|r| r.0 != hotspot.rect.size()) {
+            let mut entity = commands.entity(entity);
+            entity.remove::<HoverReady>().despawn_related::<Children>();
+            if matches!(hotspot.hover, Hover::Brighten(_)) {
+                entity.remove::<Sprite>();
+            }
+        }
     }
 }
 
@@ -236,37 +300,39 @@ fn build_hover_sprites(
                 commands.entity(entity).try_insert((
                     Sprite::from_image(handle),
                     Anchor::TOP_LEFT,
-                    HoverReady,
+                    HoverReady(hotspot.rect.size()),
                 ));
             }
             Hover::Spotlight { within } => {
                 let dims = outside(hotspot.rect, *within)
                     .into_iter()
                     .map(|r| (r, SPOTLIGHT_DIM));
-                spawn_overlays(&mut commands, entity, hotspot.rect.min, dims);
+                spawn_overlays(&mut commands, entity, hotspot.rect, dims);
             }
             Hover::Outline => {
                 let edges = frame(hotspot.rect).into_iter().map(|r| (r, OUTLINE_COLOR));
-                spawn_overlays(&mut commands, entity, hotspot.rect.min, edges);
+                spawn_overlays(&mut commands, entity, hotspot.rect, edges);
             }
         }
     }
 }
 
-/// Colored rectangles (in game coordinates) as children of a hotspot placed at `origin`.
+/// Colored rectangles (in game coordinates) as children of a hotspot.
 fn spawn_overlays(
     commands: &mut Commands,
     hotspot: Entity,
-    origin: Vec2,
+    hotspot_rect: Rect,
     rects: impl IntoIterator<Item = (Rect, Color)>,
 ) {
     let rects: Vec<_> = rects.into_iter().collect();
+    let size = hotspot_rect.size();
+    let origin = hotspot_rect.min;
     // One command, skipped as a whole if the hotspot is despawned this frame
     // (e.g. an icon bar rebuild when the view width changes).
     commands
         .entity(hotspot)
         .queue_silenced(move |mut entity: EntityWorldMut| {
-            entity.insert(HoverReady).with_children(|parent| {
+            entity.insert(HoverReady(size)).with_children(|parent| {
                 for (rect, color) in rects {
                     // Children are positioned relative to the hotspot's top-left corner, y down.
                     let offset = rect.min - origin;
@@ -424,7 +490,7 @@ mod tests {
         spawn_overlays(
             &mut commands,
             hotspot,
-            Vec2::ZERO,
+            Rect::new(0.0, 0.0, 4.0, 4.0),
             [(Rect::new(0.0, 0.0, 4.0, 4.0), Color::WHITE)],
         );
         queue.apply(&mut world);

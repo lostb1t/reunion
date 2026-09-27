@@ -2,6 +2,7 @@
 //! after choosing a hero, dropped when a new game is started.
 
 use bevy::prelude::*;
+use reunion_formats::exe::SystemLayout;
 use reunion_formats::state::GameState;
 
 use crate::game_data::{GameData, GameDataHandle};
@@ -49,6 +50,12 @@ fn start_game(
     commands.insert_resource(Game(state));
 }
 
+/// The game's Random(n): 0 to n - 1 (0 for 0).
+pub fn random(n: u16) -> u16 {
+    use std::hash::BuildHasher;
+    (std::collections::hash_map::RandomState::new().hash_one(n) % u64::from(n.max(1))) as u16
+}
+
 impl Game {
     /// Star system, planet and moon (0 = the planet itself) being looked at.
     pub fn selection(&self) -> (u16, u16, u16) {
@@ -57,6 +64,53 @@ impl Game {
         let planet = state.word(CURRENT_PLANET + system * 2).unwrap_or(1);
         let moon = state.word(CURRENT_MOON + system * 2).unwrap_or(0);
         (system, planet, moon)
+    }
+
+    /// Number of the selected planet or moon in its system (planets first,
+    /// then moons), for [`GameState::body`].
+    /// Number of the planet or moon at `(system, planet, moon)` in its system.
+    pub fn body_number(&self, layouts: &[SystemLayout], (system, planet, moon): (u8, u8, u8)) -> Option<usize> {
+        if moon == 0 {
+            return Some(planet.into());
+        }
+        let moons = layouts.get(usize::from(system).checked_sub(1)?)?.moons.get(usize::from(planet).checked_sub(1)?)?;
+        moons.get(usize::from(moon) - 1).map(|&b| b as usize)
+    }
+
+    pub fn selected_body(&self, layouts: &[SystemLayout]) -> Option<usize> {
+        let (system, planet, moon) = self.selection();
+        if moon == 0 {
+            return Some(planet as usize);
+        }
+        let moons = layouts
+            .get((system as usize).checked_sub(1)?)?
+            .moons
+            .get((planet as usize).checked_sub(1)?)?;
+        moons.get(moon as usize - 1).map(|&body| body as usize)
+    }
+
+    /// Name of a planet (moon 0) or moon, like FUN_357b_332c.
+    pub fn body_name(&self, layouts: &[SystemLayout], system: u16, planet: u16, moon: u16) -> String {
+        let body = if moon == 0 {
+            Some(planet as usize)
+        } else {
+            layouts
+                .get((system as usize).wrapping_sub(1))
+                .and_then(|l| l.moons.get((planet as usize).wrapping_sub(1)))
+                .and_then(|m| m.get(moon as usize - 1))
+                .map(|&b| b as usize)
+        };
+        body.and_then(|b| {
+            self.0
+                .star_systems()
+                .into_iter()
+                .nth((system as usize).wrapping_sub(1))?
+                .bodies
+                .into_iter()
+                .nth(b.wrapping_sub(1))
+        })
+        .map(|b| b.name.trim_end().to_string())
+        .unwrap_or_default()
     }
 
     pub fn select(&mut self, system: u16, planet: u16, moon: u16) {

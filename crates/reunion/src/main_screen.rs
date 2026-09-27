@@ -2,13 +2,24 @@
 //! the fixed hotspots from FUN_3abd_08e0. The icon bar and text strip come
 //! from the HUD.
 //!
+//! The people: you (GRAFIKA/HEROES, 67x59 at (131, 99), FUN_3abd_163f) and
+//! the commanders you hired (GRAFIKA/MAINFACE, FUN_3abd_16bc: per category
+//! a place in the room, DS:0x54cc x, 0x54d4 y, 0x550c width, 0x5514 height,
+//! and per candidate a frame, DS:0x54d6 / 0x54ee + 6 * category + 2 *
+//! candidate). Commanders away at university aren't there. Clicking one
+//! talks to them (screen 24).
+//!
 //! Widescreen: extension art from `art://widescreen/` on both sides.
 
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
-use crate::focus::{Hover, hotspot};
+use crate::focus::{Activated, Hover, hotspot};
+use crate::game::Game;
 use crate::game_data::{GameData, GameDataHandle};
+use crate::pic::MASKED;
+use crate::staff_talk::TalkTo;
+use crate::transition::GoTo;
 use crate::hud::{ActionByLabel, CONTENT_Y, HoverLabel};
 use crate::screen::{GAME_WIDTH, GameScreen, picture, place};
 
@@ -20,7 +31,8 @@ impl Plugin for MainScreenPlugin {
             .add_systems(
                 Update,
                 spawn_room_hotspots.run_if(in_state(GameScreen::MainScreen)),
-            );
+            )
+            .add_observer(talk);
     }
 }
 
@@ -32,6 +44,10 @@ const ROOM_AREA: Rect = Rect {
 
 #[derive(Component)]
 struct RoomHotspotsSpawned;
+
+/// A commander in the room (category 1-4).
+#[derive(Component)]
+struct Person(u16);
 
 fn spawn_room(mut commands: Commands, asset_server: Res<AssetServer>) {
     let scoped = DespawnOnExit(GameScreen::MainScreen);
@@ -63,11 +79,13 @@ fn spawn_room_hotspots(
     handle: Res<GameDataHandle>,
     data: Res<Assets<GameData>>,
     spawned: Query<(), With<RoomHotspotsSpawned>>,
+    game: Option<Res<Game>>,
+    asset_server: Res<AssetServer>,
 ) {
     if !spawned.is_empty() {
         return;
     }
-    let Some(data) = data.get(&handle.0) else {
+    let (Some(data), Some(game)) = (data.get(&handle.0), game) else {
         return;
     };
     let scoped = DespawnOnExit(GameScreen::MainScreen);
@@ -85,5 +103,69 @@ fn spawn_room_hotspots(
             hotspot(rect, Hover::Spotlight { within: ROOM_AREA }),
             scoped.clone(),
         ));
+    }
+    let word = |at: u16| {
+        data.exe
+            .ds_bytes(at, 2)
+            .map_or(0.0, |b| f32::from(i16::from_le_bytes([b[0], b[1]])))
+    };
+    let sprite = |image: &Handle<Image>, rect: Rect, at: Vec2| {
+        (
+            Sprite {
+                image: image.clone(),
+                rect: Some(rect),
+                ..default()
+            },
+            Anchor::TOP_LEFT,
+            place(at, 0.3),
+        )
+    };
+    // You.
+    let heroes = asset_server.load::<Image>(format!("GRAFIKA/HEROES.PIC#{MASKED}"));
+    let x = f32::from(game.0.word(0x9278).unwrap_or(1));
+    commands.spawn((
+        sprite(&heroes, Rect::new(x, 1.0, x + 67.0, 60.0), Vec2::new(131.0, 99.0)),
+        scoped.clone(),
+    ));
+    // The commanders you hired, in the drawing order of DS:0x551c.
+    let faces = asset_server.load::<Image>(format!("GRAFIKA/MAINFACE.PIC#{MASKED}"));
+    for slot in 1..=4u16 {
+        let p = word(0x551c + 2 * slot) as u16;
+        let hired = game.0.word(0x95b4 + 2 * p).unwrap_or(0);
+        let away = game.0.word(0x5d9e) == Some(p) || (p == 4 && game.0.word(0x5d52) != Some(0));
+        if hired == 0 || hired > 3 || away {
+            continue;
+        }
+        let at = Vec2::new(word(0x54cc + 2 * p) + 1.0, word(0x54d4 + 2 * p) + CONTENT_Y + 1.0);
+        let size = Vec2::new(word(0x550c + 2 * p) - 2.0, word(0x5514 + 2 * p) - 2.0);
+        let from = Vec2::new(
+            word(0x54d6 + 6 * p + 2 * hired) + 1.0,
+            word(0x54ee + 6 * p + 2 * hired) + 1.0,
+        );
+        commands.spawn((
+            sprite(&faces, Rect::from_corners(from, from + size), at),
+            scoped.clone(),
+        ));
+        let name = data
+            .exe
+            .ds_string(0x57f8 + 0x39 * p + 0x13 * hired)
+            .unwrap_or_default();
+        commands.spawn((
+            Person(p),
+            HoverLabel(name),
+            hotspot(
+                Rect::from_corners(at - 1.0, at + size + 1.0),
+                Hover::Spotlight { within: ROOM_AREA },
+            ),
+            scoped.clone(),
+        ));
+    }
+}
+
+/// FUN_3abd_005c: a commander was clicked; talk to them.
+fn talk(activated: On<Activated>, people: Query<&Person>, mut commands: Commands) {
+    if let Ok(&Person(p)) = people.get(activated.0) {
+        commands.insert_resource(TalkTo(p));
+        commands.trigger(GoTo(GameScreen::StaffTalk));
     }
 }

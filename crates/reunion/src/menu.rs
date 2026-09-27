@@ -62,7 +62,7 @@ fn on_activated(
     };
     match choice {
         MenuChoice::NewGame => commands.trigger(GoTo(GameScreen::ChooseHero)),
-        MenuChoice::LoadGame => info!("Load Game is not implemented yet"),
+        MenuChoice::LoadGame => commands.trigger(GoTo(GameScreen::LoadGame)),
         MenuChoice::ExitToDos if cfg!(target_arch = "wasm32") => {
             info!("No DOS to exit to in the browser")
         }

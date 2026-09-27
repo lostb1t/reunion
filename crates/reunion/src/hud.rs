@@ -24,7 +24,8 @@ pub struct HudPlugin;
 impl Plugin for HudPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<IconPage>()
-            .init_resource::<ExtraActions>();
+            .init_resource::<ExtraActions>()
+            .init_resource::<IconSetOverride>();
         for screen in GameScreen::IN_GAME {
             app.add_systems(OnEnter(screen), spawn_hud);
         }
@@ -97,6 +98,12 @@ const BACK_TO_MAIN: u8 = 24;
 #[derive(Resource, Default)]
 pub struct ExtraActions(pub Vec<u8>);
 
+/// Another screen's icon bar set in place of the screen's own, like the
+/// original's FUN_3a1b_0019 (INFO-BUY's list and amount sets). Cleared
+/// whenever a screen is entered.
+#[derive(Resource, Default)]
+pub struct IconSetOverride(pub Option<u8>);
+
 /// First action of the icon set shown in the bar.
 #[derive(Resource, Default)]
 pub struct IconPage(usize);
@@ -140,11 +147,13 @@ pub fn spawn_hud(
     screen: Res<State<GameScreen>>,
     mut page: ResMut<IconPage>,
     mut extra: ResMut<ExtraActions>,
+    mut set: ResMut<IconSetOverride>,
     mut focus: ResMut<Focus>,
 ) {
     let scoped = DespawnOnExit(*screen.get());
     page.0 = 0;
     extra.0.clear();
+    set.0 = None;
     // The previous screen's hotspots are gone; the icon bar picks a new default.
     focus.0 = None;
     commands.spawn((
@@ -258,10 +267,15 @@ fn bar_layout(bounds: ViewBounds, actions: usize) -> BarLayout {
 }
 
 /// The screen's icon bar set followed by any extra actions.
-fn icon_set(data: &GameData, screen: &State<GameScreen>, extra: &ExtraActions) -> Vec<u8> {
-    let base = screen
-        .get()
-        .number()
+fn icon_set(
+    data: &GameData,
+    screen: &State<GameScreen>,
+    set: &IconSetOverride,
+    extra: &ExtraActions,
+) -> Vec<u8> {
+    let base = set
+        .0
+        .or(screen.get().number())
         .and_then(|n| data.icon_sets.get(n as usize))
         .map_or(&[][..], Vec::as_slice);
     base.iter().chain(&extra.0).copied().collect()
@@ -278,20 +292,26 @@ fn layout_icon_bar(
     parts: Query<Entity, With<BarPart>>,
     roles: Query<&BarRole>,
     extra: Res<ExtraActions>,
+    set: Res<IconSetOverride>,
     mut focus: ResMut<Focus>,
     mut images: ResMut<Assets<Image>>,
 ) {
     let Some(data) = data.get(&handle.0) else {
         return;
     };
-    if !parts.is_empty() && !bounds.is_changed() && !page.is_changed() && !extra.is_changed() {
+    if !parts.is_empty()
+        && !bounds.is_changed()
+        && !page.is_changed()
+        && !extra.is_changed()
+        && !set.is_changed()
+    {
         return;
     }
     // The edge fillers are cut from ICONMAIN.PIC, so wait for its pixels.
     if images.get(&pictures.icon_frames).is_none() {
         return;
     }
-    let actions = icon_set(data, &screen, &extra);
+    let actions = icon_set(data, &screen, &set, &extra);
     let layout = bar_layout(*bounds, actions.len());
     if page.0 >= actions.len() || layout.corner != Corner::Paging {
         page.0 = 0;
@@ -545,6 +565,7 @@ fn on_activated(
     data: Res<Assets<GameData>>,
     mut page: ResMut<IconPage>,
     extra: Res<ExtraActions>,
+    set: Res<IconSetOverride>,
     mut game: Option<ResMut<Game>>,
     mut commands: Commands,
 ) {
@@ -555,7 +576,7 @@ fn on_activated(
         return;
     };
     if role == Some(&BarRole::PageToggle) {
-        let actions = icon_set(data, &screen, &extra).len();
+        let actions = icon_set(data, &screen, &set, &extra).len();
         let slots = bar_layout(*bounds, actions).slots;
         page.0 = if page.0 + slots >= actions {
             0

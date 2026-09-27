@@ -89,17 +89,39 @@ fn on_activated(activated: On<Activated>, choices: Query<&HeroChoice>, mut comma
     commands.trigger(GoTo(GameScreen::HeroIntro));
 }
 
-fn on_back(_: On<Start<Back>>, screen: Res<State<GameScreen>>, mut commands: Commands) {
+fn on_back(
+    _: On<Start<Back>>,
+    screen: Res<State<GameScreen>>,
+    editing: Option<Res<crate::text::TextEditing>>,
+    popup: Option<Res<crate::popup::PopupOpen>>,
+    mut commands: Commands,
+) {
+    if editing.is_some() || popup.is_some() {
+        return;
+    }
     let previous = match screen.get() {
-        GameScreen::ChooseHero => GameScreen::MainMenu,
+        GameScreen::ChooseHero | GameScreen::LoadGame => GameScreen::MainMenu,
         GameScreen::HeroIntro => GameScreen::ChooseHero,
         // Like BACK TO M.SCREEN, which every in-game screen has in its icon bar.
         GameScreen::PlanetMain
         | GameScreen::PlanetInfo
         | GameScreen::Messages
         | GameScreen::DiskOperations
-        | GameScreen::MainComputer => GameScreen::MainScreen,
-        GameScreen::MainMenu | GameScreen::MainScreen => return,
+        | GameScreen::MainComputer
+        | GameScreen::Research
+        | GameScreen::Commanders
+        | GameScreen::GalacticMap
+        | GameScreen::Credits
+        | GameScreen::ShipInfo
+        | GameScreen::InfoBuy
+        | GameScreen::StaffTalk => GameScreen::MainScreen,
+        GameScreen::ResourceMine => GameScreen::PlanetMain,
+        GameScreen::Colonize => GameScreen::PlanetInfo,
+        GameScreen::CreateUnit
+        | GameScreen::Group
+        | GameScreen::ControlPanel
+        | GameScreen::Transfer => GameScreen::ShipInfo,
+        GameScreen::MainMenu | GameScreen::MainScreen | GameScreen::SpaceBattle => return,
     };
     commands.trigger(GoTo(previous));
 }

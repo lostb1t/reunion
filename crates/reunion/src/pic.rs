@@ -1,4 +1,8 @@
 //! Loads original `.PIC` files straight into Bevy [`Image`]s.
+//!
+//! The original (FUN_405f_0bef) loads a picture's pixels and palette moved
+//! up by 0x40, below the colors of the icon bar; so a game color c >= 0x40
+//! used for fills is the picture's color c - 0x40.
 
 use bevy::asset::io::Reader;
 use bevy::asset::{AssetLoader, LoadContext, RenderAssetUsages};
@@ -8,6 +12,9 @@ use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use reunion_formats::pic::{self, PicError};
 
 pub struct PicPlugin;
+
+/// Label of a picture's sub-asset with palette index 0 transparent.
+pub const MASKED: &str = "masked";
 
 impl Plugin for PicPlugin {
     fn build(&self, app: &mut App) {
@@ -35,11 +42,16 @@ impl AssetLoader for PicLoader {
         &self,
         reader: &mut dyn Reader,
         _settings: &(),
-        _load_context: &mut LoadContext<'_>,
+        load_context: &mut LoadContext<'_>,
     ) -> Result<Image, PicLoadError> {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
         let pic = pic::decode(&bytes)?;
+        // `<file>#masked`: palette index 0 transparent, for sprite sheets.
+        load_context.add_labeled_asset(
+            MASKED.to_string(),
+            rgba_image(pic.width.into(), pic.height.into(), pic.to_rgba_masked()),
+        );
         Ok(rgba_image(
             pic.width.into(),
             pic.height.into(),

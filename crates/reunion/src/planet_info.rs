@@ -13,9 +13,14 @@
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
-use crate::game::Game;
+use reunion_formats::deploy;
+
+use crate::game::{Game, random};
+use crate::popup::ShowMessage;
+use crate::transition::GoTo;
 use crate::game_data::{GameData, GameDataHandle};
 use crate::hud::{ActionUsed, CONTENT_Y, ExtraActions, YELLOW_TEXT};
+use crate::pic::MASKED;
 use crate::screen::{GameScreen, picture, place};
 
 pub struct PlanetInfoPlugin;
@@ -28,9 +33,10 @@ impl Plugin for PlanetInfoPlugin {
         )
         .add_systems(
             Update,
-            update_texts.run_if(in_state(GameScreen::PlanetInfo)),
+            (update_texts, deploy_icons).run_if(in_state(GameScreen::PlanetInfo)),
         )
-        .add_observer(change_tax);
+        .add_observer(change_tax)
+        .add_observer(deploy);
     }
 }
 
@@ -115,6 +121,8 @@ fn enter(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     game: Option<Res<Game>>,
+    handle: Res<GameDataHandle>,
+    data: Res<Assets<GameData>>,
     mut extra: ResMut<ExtraActions>,
 ) {
     let scoped = DespawnOnExit(GameScreen::PlanetInfo);
@@ -134,9 +142,14 @@ fn enter(
             scoped.clone(),
         ));
     }
-    let Some(game) = game else { return };
-    let (system, planet, _moon) = game.selection();
-    let Some(record) = record(&game, system, planet) else {
+    let (Some(game), Some(data)) = (game, data.get(&handle.0)) else {
+        return;
+    };
+    let (system, planet, moon) = game.selection();
+    let Some(body) = game.selected_body(&data.star_systems) else {
+        return;
+    };
+    let Some(record) = record(&game, system, body) else {
         return;
     };
     let survey = record[field::SURVEY] as i8;
@@ -162,15 +175,18 @@ fn enter(
             Rect::new(2.0, 2.0, 94.0, 53.0),
             Vec2::new(2.0, 147.0),
         ),
-        (
-            format!("PLANETS/NAPR{system}.PIC"),
-            {
-                let x = 64.0 + (planet as f32 - 1.0) * 32.0;
-                Rect::new(x, 1.0, x + 32.0, 33.0)
-            },
-            Vec2::new(13.0, 105.0),
-        ),
     ];
+    let planets = data.star_systems[system as usize - 1].moons.len();
+    let (icon, icon_pos) = if moon == 0 {
+        (napr_planet(planet as usize), Vec2::new(13.0, 105.0))
+    } else {
+        (napr_moon(body - planets), Vec2::new(21.0, 113.0))
+    };
+    let pictures = pictures.into_iter().chain([(
+        format!("PLANETS/NAPR{system}.PIC#{MASKED}"),
+        icon,
+        icon_pos,
+    )]);
     for (path, rect, pos) in pictures {
         commands.spawn((
             Sprite {
@@ -183,19 +199,95 @@ fn enter(
             scoped.clone(),
         ));
     }
-    // FUN_1413_000a: INCREASE / DECREASE TAX on your own populated planet.
-    if owner == 1 && record[field::COLONY] != 0 {
-        extra.0.extend([INCREASE_TAX, DECREASE_TAX]);
+    extra.0 = icons(&game, data, (system as u8, planet as u8, moon as u8), body);
+}
+
+/// The icon bar's extras: FUN_1413_000a's INCREASE / DECREASE TAX on your
+/// own populated planet, and what ships in orbit can put there
+/// (FUN_28cd_062b).
+fn icons(game: &Game, data: &GameData, place: (u8, u8, u8), body: usize) -> Vec<u8> {
+    let Some(record) = game.0.body(place.0.into(), body) else {
+        return Vec::new();
+    };
+    let mut icons = Vec::new();
+    if record[field::OWNER] == 1 && record[field::COLONY] != 0 {
+        icons.extend([INCREASE_TAX, DECREASE_TAX]);
+    }
+    icons.extend(game.0.deploy_actions(&data.exe, place, body));
+    icons
+}
+
+/// Keeps the extras up to date as things are put on the planet.
+fn deploy_icons(
+    game: Option<Res<Game>>,
+    handle: Res<GameDataHandle>,
+    data: Res<Assets<GameData>>,
+    mut extra: ResMut<ExtraActions>,
+) {
+    let (Some(game), Some(data)) = (game, data.get(&handle.0)) else {
+        return;
+    };
+    if !game.is_changed() {
+        return;
+    }
+    let (system, planet, moon) = game.selection();
+    let Some(body) = game.selected_body(&data.star_systems) else { return };
+    let icons = icons(&game, data, (system as u8, planet as u8, moon as u8), body);
+    if extra.0 != icons {
+        extra.0 = icons;
     }
 }
 
-fn record(game: &Game, system: u16, planet: u16) -> Option<Vec<u8>> {
-    let systems = game.0.star_systems();
-    let body = systems
-        .get(system as usize - 1)?
-        .bodies
-        .get(planet as usize - 1)?;
-    Some(body.data.to_vec())
+/// FUN_28cd_0948: an extra icon was used.
+fn deploy(
+    action: On<ActionUsed>,
+    screen: Res<State<GameScreen>>,
+    game: Option<ResMut<Game>>,
+    handle: Res<GameDataHandle>,
+    data: Res<Assets<GameData>>,
+    mut commands: Commands,
+) {
+    if *screen.get() != GameScreen::PlanetInfo {
+        return;
+    }
+    let (Some(mut game), Some(data)) = (game, data.get(&handle.0)) else {
+        return;
+    };
+    let (system, planet, moon) = game.selection();
+    let Some(body) = game.selected_body(&data.star_systems) else { return };
+    let place = (system as u8, planet as u8, moon as u8);
+    if action.0 == deploy::COLONIZATION {
+        if !game.0.deploy_actions(&data.exe, place, body).contains(&deploy::COLONIZATION) {
+            return;
+        }
+        match game.0.colony_builder_problem(place.0) {
+            Some(problem) => commands.trigger(ShowMessage::new(problem)),
+            None => commands.trigger(GoTo(GameScreen::Colonize)),
+        }
+        return;
+    }
+    for event in game.0.deploy(&data.exe, &data.sim_texts, action.0, place, body, &mut random) {
+        commands.trigger(crate::story::Tell(event));
+    }
+}
+
+fn record(game: &Game, system: u16, body: usize) -> Option<Vec<u8>> {
+    game.0.body(system as usize, body).map(<[u8]>::to_vec)
+}
+
+/// A planet's 32x32 picture in its system's NAPR sheet (1-based planet).
+pub fn napr_planet(planet: usize) -> Rect {
+    let x = 64.0 + (planet as f32 - 1.0) * 32.0;
+    Rect::new(x, 1.0, x + 32.0, 33.0)
+}
+
+/// A moon's picture in the NAPR sheet: 17-pixel cells, 14 per row, from
+/// (66, 34); `moon` counts the system's moons from 1.
+pub fn napr_moon(moon: usize) -> Rect {
+    let i = moon.saturating_sub(1);
+    let x = 66.0 + 17.0 * (i % 14) as f32;
+    let y = 34.0 + 17.0 * (i / 14) as f32;
+    Rect::new(x, y, x + 16.0, y + 16.0)
 }
 
 fn update_texts(
@@ -213,14 +305,17 @@ fn update_texts(
         return;
     }
     let (system, planet, moon) = game.selection();
-    let Some(record) = record(&game, system, planet) else {
+    let Some(body) = game.selected_body(&data.star_systems) else {
+        return;
+    };
+    let Some(record) = record(&game, system, body) else {
         return;
     };
     let name = game
         .0
         .star_systems()
         .get(system as usize - 1)
-        .and_then(|s| s.bodies.get(planet as usize - 1))
+        .and_then(|s| s.bodies.get(body - 1))
         .map(|b| b.name.trim_end().to_string())
         .unwrap_or_default();
     let info = PlanetInfo {
@@ -554,13 +649,24 @@ impl PlanetInfo<'_> {
     }
 }
 
-fn change_tax(action: On<ActionUsed>, screen: Res<State<GameScreen>>, game: Option<ResMut<Game>>) {
+fn change_tax(
+    action: On<ActionUsed>,
+    screen: Res<State<GameScreen>>,
+    game: Option<ResMut<Game>>,
+    handle: Res<GameDataHandle>,
+    data: Res<Assets<GameData>>,
+) {
     if *screen.get() != GameScreen::PlanetInfo {
         return;
     }
-    let Some(mut game) = game else { return };
-    let (system, planet, _) = game.selection();
-    let Some(record) = game.0.planet_mut(system as usize, planet as usize) else {
+    let (Some(mut game), Some(data)) = (game, data.get(&handle.0)) else {
+        return;
+    };
+    let (system, _, _) = game.selection();
+    let Some(body) = game.selected_body(&data.star_systems) else {
+        return;
+    };
+    let Some(record) = game.0.planet_mut(system as usize, body) else {
         return;
     };
     let tax = &mut record[field::TAX];

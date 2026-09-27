@@ -6,7 +6,9 @@
 use bevy::asset::io::Reader;
 use bevy::asset::{AssetLoader, LoadContext};
 use bevy::prelude::*;
-use reunion_formats::exe::{ExeError, GameExe, RoomHotspot, SCREENS, SystemLayout, TERRAINS};
+use reunion_formats::exe::{
+    ExeError, GameExe, RoomHotspot, SCREENS, SystemLayout, TERRAINS, UnitCategory,
+};
 use reunion_formats::icons::{ICON_HEIGHT, ICON_WIDTH, decode_icons};
 use reunion_formats::map::{MapError, SurfaceMap};
 use reunion_formats::pic::{self, PicError};
@@ -44,6 +46,10 @@ pub struct GameData {
     pub terrain_for_type: Vec<u16>,
     /// Per terrain number (1-11).
     pub terrains: Vec<Terrain>,
+    /// Commander candidates' four text lines (TEXT/SZ_FACE.RAW), 3 per category.
+    pub commanders: Vec<[String; 4]>,
+    /// Salaries, levels and skills for hiring commanders.
+    pub hire: crate::commanders::HireTables,
     /// Star system names and moons, system n at index n - 1.
     pub star_systems: Vec<SystemLayout>,
     /// The state a new game starts from (REUNION.PRG + SAVE/INIT).
@@ -53,6 +59,34 @@ pub struct GameData {
     /// palette entries 112-114 and 115-117, which FUN_405f_12e4 and _1317
     /// reach by adding -0x50 and -0x4d to the font pixels.
     pub disk_text: [[[u8; 4]; 3]; 2],
+    /// What each unit type (index 1-5) carries.
+    pub unit_categories: Vec<Vec<UnitCategory>>,
+    /// Satellite kinds a satellite carrier carries.
+    pub satellites: Vec<String>,
+    /// Short star names (DS:0x5baf + 7 * system), system n at index n - 1.
+    pub short_star_names: Vec<String>,
+    /// What you and your staff say (screen 24).
+    pub talk: StaffTalkTexts,
+    /// Conversations with aliens (TEXT/KERDES<n>.AT questions and
+    /// VALASZ<n>.AT answers), conversation n at index n; empty where the
+    /// game has none.
+    pub alien_talks: Vec<(Vec<String>, Vec<String>)>,
+    /// Per invention, INFO-BUY's title and six lines (TEXT/SZ_TALAL.RAW:
+    /// 31-byte Pascal strings).
+    pub descriptions: Vec<[String; 7]>,
+    /// The executable, for strings read by only one screen.
+    pub exe: GameExe,
+    /// TEXT/MESSAGE.TXT and TEXT/KITALAL.TXT, for what happens over time.
+    pub sim_texts: reunion_formats::sim::Texts,
+}
+
+/// TEXT/KERDES1.SP (questions), RKERDES1.SP (their short forms),
+/// VALASZ1.SP (answers) and AJANLAS.SP (reasons), line n at index n - 1.
+pub struct StaffTalkTexts {
+    pub questions: Vec<String>,
+    pub short_questions: Vec<String>,
+    pub answers: Vec<String>,
+    pub reasons: Vec<String>,
 }
 
 /// A planet surface tile set: FELSZ<n>.PIC (static) and FANIM<n>.PIC (animated).
@@ -173,6 +207,38 @@ impl AssetLoader for GameDataLoader {
         };
         let icon_all = read("ICON/ICON.ALL").await?;
         let init = read("SAVE/INIT").await?;
+        let faces = read("TEXT/SZ_FACE.RAW").await?;
+        let descriptions = read("TEXT/SZ_TALAL.RAW").await?;
+        let sim_texts =
+            reunion_formats::sim::Texts::parse(&read("TEXT/MESSAGE.TXT").await?, &read("TEXT/KITALAL.TXT").await?);
+        let mut text_lines = async |path: &'static str| -> Result<Vec<String>, GameDataError> {
+            Ok(reunion_formats::text::decrypt_lines(&read(path).await?)
+                .into_iter()
+                .map(|l| l.into_iter().map(char::from).collect())
+                .collect())
+        };
+        const ALIEN_TALKS: [(&str, &str); 10] = [
+            ("TEXT/KERDES1.AT", "TEXT/VALASZ1.AT"),
+            ("TEXT/KERDES2.AT", "TEXT/VALASZ2.AT"),
+            ("TEXT/KERDES3.AT", "TEXT/VALASZ3.AT"),
+            ("TEXT/KERDES4.AT", "TEXT/VALASZ4.AT"),
+            ("TEXT/KERDES5.AT", "TEXT/VALASZ5.AT"),
+            ("TEXT/KERDES6.AT", "TEXT/VALASZ6.AT"),
+            ("TEXT/KERDES7.AT", "TEXT/VALASZ7.AT"),
+            ("TEXT/KERDES8.AT", "TEXT/VALASZ8.AT"),
+            ("TEXT/KERDES9.AT", "TEXT/VALASZ9.AT"),
+            ("TEXT/KERDES10.AT", "TEXT/VALASZ10.AT"),
+        ];
+        let mut alien_talks = vec![(Vec::new(), Vec::new())];
+        for (questions, answers) in ALIEN_TALKS {
+            alien_talks.push((text_lines(questions).await.unwrap_or_default(), text_lines(answers).await.unwrap_or_default()));
+        }
+        let talk = StaffTalkTexts {
+            questions: text_lines("TEXT/KERDES1.SP").await?,
+            short_questions: text_lines("TEXT/RKERDES1.SP").await?,
+            answers: text_lines("TEXT/VALASZ1.SP").await?,
+            reasons: text_lines("TEXT/AJANLAS.SP").await?,
+        };
         let disk_palette = pic::decode(&read("GRAFIKA/DISK.PIC").await?)?.palette;
         let color = |i: usize| {
             let [r, g, b] = disk_palette[i];
@@ -212,7 +278,28 @@ impl AssetLoader for GameDataLoader {
             action_icons.push((icon != 0).then(|| icons.get(icon).cloned()).flatten());
         }
 
+        let unit_categories = (0..=5)
+            .map(|t| exe.unit_categories(t))
+            .collect::<Result<_, _>>()?;
+        let satellites = exe.satellite_names()?;
+        let short_star_names = (1..=8)
+            .map(|s| exe.ds_string(0x5baf + 7 * s).unwrap_or_default())
+            .collect();
+        let pascal = |b: &[u8]| -> String {
+            let n = (b[0] as usize).min(b.len() - 1);
+            b[1..=n].iter().map(|&c| c as char).collect()
+        };
+        let descriptions = descriptions
+            .chunks_exact(7 * 31)
+            .map(|r| std::array::from_fn(|k| pascal(&r[k * 31..(k + 1) * 31])))
+            .collect();
         Ok(GameData {
+            talk,
+            alien_talks,
+            descriptions,
+            unit_categories,
+            satellites,
+            short_star_names,
             labels,
             action_icons,
             // One icon bar set per screen, indexed by screen number.
@@ -221,6 +308,8 @@ impl AssetLoader for GameDataLoader {
                 .collect::<Result<_, _>>()?,
             main_room: exe.main_room()?,
             star_systems: exe.star_systems()?,
+            commanders: crate::commanders::parse_candidates(&faces),
+            hire: crate::commanders::HireTables::read(&exe).ok_or(ExeError::OutOfRange)?,
             screen_triggers: (0..=SCREENS)
                 .map(|s| exe.screen_trigger(s))
                 .collect::<Result<_, _>>()?,
@@ -246,6 +335,8 @@ impl AssetLoader for GameDataLoader {
                 width: charset.width as usize,
                 pixels: charset.pixels,
             },
+            exe,
+            sim_texts,
         })
     }
 
