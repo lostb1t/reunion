@@ -24,11 +24,21 @@ const SCREEN_TRIGGERS: u16 = 0x5106;
 pub const SCREENS: u8 = 38;
 /// Planet type -> terrain (FELSZ/FANIM/RADAR/EPUL number), words.
 const TERRAIN_FOR_TYPE: u16 = 0x1a38;
+/// Per terrain, a byte: non-zero when people can live there.
+const HABITABLE: u16 = 0x1a4f;
 /// Per terrain, words: static tiles in FELSZ, FELSZ height, FANIM height.
 const STATIC_TILES: u16 = 0x1810;
 const FELSZ_ROWS: u16 = 0x17e4;
 const FANIM_ROWS: u16 = 0x17fa;
 pub const TERRAINS: u16 = 11;
+/// Star systems: names (9-byte Pascal strings at DS:0x5b65 + 9 * system),
+/// planet counts (words at 0x4774 + 2 * system) and, per planet, a 9-byte
+/// moon record (count, then body numbers) at the offset in the far pointer
+/// table at 0x4732 + 4 * system. Bodies are numbered planets first, moons after.
+const SYSTEM_NAMES: u16 = 0x5b65;
+const PLANET_COUNTS: u16 = 0x4774;
+const MOON_TABLES: u16 = 0x4732;
+pub const STAR_SYSTEMS: u16 = 8;
 /// Characters in CHARSET1.PIC glyph order.
 const CHARSET_ORDER: u16 = 0x5bee;
 
@@ -52,6 +62,14 @@ pub enum ExeError {
     Unsupported,
     #[error("table outside the file")]
     OutOfRange,
+}
+
+/// A star system's static layout.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SystemLayout {
+    pub name: String,
+    /// Body numbers (1-based) of each planet's moons, one entry per planet.
+    pub moons: Vec<Vec<u8>>,
 }
 
 /// A clickable area of the main room.
@@ -139,6 +157,11 @@ impl GameExe {
         self.ds_word(TERRAIN_FOR_TYPE + planet_type as u16 * 2)
     }
 
+    /// Whether people can live on a terrain (FUN_357b_0359's "life supporting").
+    pub fn habitable(&self, terrain: u16) -> Result<bool, ExeError> {
+        Ok(self.data[self.at(DS, HABITABLE + terrain)?] != 0)
+    }
+
     /// How many tiles of a terrain are static (in FELSZ) rather than animated.
     pub fn static_tiles(&self, terrain: u16) -> Result<u16, ExeError> {
         self.ds_word(STATIC_TILES + terrain * 2)
@@ -150,6 +173,25 @@ impl GameExe {
             self.ds_word(FELSZ_ROWS + terrain * 2)?,
             self.ds_word(FANIM_ROWS + terrain * 2)?,
         ))
+    }
+
+    /// The eight star systems, 1-based system n at index n - 1.
+    pub fn star_systems(&self) -> Result<Vec<SystemLayout>, ExeError> {
+        (1..=STAR_SYSTEMS)
+            .map(|system| {
+                let name = self.pascal_string(DS, SYSTEM_NAMES + 9 * system)?;
+                let planets = self.ds_word(PLANET_COUNTS + 2 * system)? as usize;
+                let table = self.ds_word(MOON_TABLES + 4 * system)?;
+                let moons = (0..planets)
+                    .map(|p| {
+                        let pos = self.at(DS, table + 9 * p as u16)?;
+                        let count = (self.data[pos] as usize).min(8);
+                        Ok(self.data[pos + 1..pos + 1 + count].to_vec())
+                    })
+                    .collect::<Result<_, ExeError>>()?;
+                Ok(SystemLayout { name, moons })
+            })
+            .collect()
     }
 
     /// Characters in the order of the glyphs in CHARSET1.PIC.

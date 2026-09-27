@@ -3,16 +3,20 @@
 
 mod autopilot;
 mod clock;
+mod disk;
 mod focus;
 mod game;
 mod game_data;
 mod hero;
 mod hud;
 mod input;
+mod main_computer;
 mod main_screen;
 mod menu;
+mod messages;
 mod pic;
 mod planet;
+mod planet_info;
 mod screen;
 mod transition;
 
@@ -61,12 +65,19 @@ fn main() {
             hero::HeroPlugin,
             transition::TransitionPlugin,
             game_data::GameDataPlugin,
+        ))
+        // Game screens.
+        .add_plugins((
             main_screen::MainScreenPlugin,
             game::GamePlugin,
             hud::HudPlugin,
             planet::PlanetPlugin,
             clock::ClockPlugin,
             autopilot::AutopilotPlugin,
+            disk::DiskPlugin,
+            planet_info::PlanetInfoPlugin,
+            messages::MessagesPlugin,
+            main_computer::MainComputerPlugin,
         ))
         .run();
 }

@@ -94,7 +94,11 @@ fn on_back(_: On<Start<Back>>, screen: Res<State<GameScreen>>, mut commands: Com
         GameScreen::ChooseHero => GameScreen::MainMenu,
         GameScreen::HeroIntro => GameScreen::ChooseHero,
         // Like BACK TO M.SCREEN, which every in-game screen has in its icon bar.
-        GameScreen::PlanetMain => GameScreen::MainScreen,
+        GameScreen::PlanetMain
+        | GameScreen::PlanetInfo
+        | GameScreen::Messages
+        | GameScreen::DiskOperations
+        | GameScreen::MainComputer => GameScreen::MainScreen,
         GameScreen::MainMenu | GameScreen::MainScreen => return,
     };
     commands.trigger(GoTo(previous));

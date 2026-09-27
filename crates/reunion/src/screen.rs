@@ -27,6 +27,10 @@ pub enum GameScreen {
     HeroIntro,
     MainScreen,
     PlanetMain,
+    PlanetInfo,
+    Messages,
+    DiskOperations,
+    MainComputer,
 }
 
 impl GameScreen {
@@ -41,9 +45,18 @@ impl GameScreen {
     pub fn number(self) -> Option<u8> {
         match self {
             GameScreen::MainScreen => Some(1),
+            GameScreen::PlanetInfo => Some(8),
+            GameScreen::Messages => Some(11),
+            GameScreen::DiskOperations => Some(12),
             GameScreen::PlanetMain => Some(20),
+            GameScreen::MainComputer => Some(37),
             _ => None,
         }
+    }
+
+    /// Screens that stop game time, like the original clearing DS:0x95f8.
+    pub fn pauses_time(self) -> bool {
+        matches!(self, GameScreen::DiskOperations)
     }
 
     pub fn from_number(number: u8) -> Option<Self> {
@@ -53,7 +66,14 @@ impl GameScreen {
     }
 
     /// All in-game screens (the ones with the icon bar and text strip).
-    pub const IN_GAME: [GameScreen; 2] = [GameScreen::MainScreen, GameScreen::PlanetMain];
+    pub const IN_GAME: [GameScreen; 6] = [
+        GameScreen::MainScreen,
+        GameScreen::PlanetMain,
+        GameScreen::PlanetInfo,
+        GameScreen::Messages,
+        GameScreen::DiskOperations,
+        GameScreen::MainComputer,
+    ];
 }
 
 /// Run condition: an in-game screen is showing.

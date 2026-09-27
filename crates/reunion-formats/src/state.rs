@@ -222,6 +222,15 @@ const DATE: [u16; 4] = [0x95de, 0x95e0, 0x95e2, 0x95e4];
 /// 35 words set to 0xffff at the start of a new game.
 const NEW_GAME_FILL: (u16, usize, u16) = (0x91a0, 35, 0xffff);
 
+/// Message log (FUN_34b0_0001): a heap buffer of 15 records of 53 bytes (a
+/// u16 kind, then the text as a Pascal string of up to 50 characters) and the
+/// number in use.
+const MESSAGES: u16 = 0x7ade;
+const MESSAGE_COUNT: u16 = 0x7ae2;
+const MESSAGE_LEN: usize = 0x35;
+pub const MAX_MESSAGES: usize = 15;
+const MESSAGE_TEXT_LEN: usize = 50;
+
 const INVENTIONS: (u16, usize) = (0x5dac, 53);
 const RACES: (u16, usize) = (0x6bce, 228);
 const CHARACTERS: (u16, usize) = (0x013a, 27);
@@ -300,6 +309,12 @@ impl GameState {
         let (block, offset) = self.locate(address)?;
         let bytes = self.blocks[&block].get(offset..offset + 2)?;
         Some(u16::from_le_bytes([bytes[0], bytes[1]]))
+    }
+
+    /// An 8-bit value anywhere in the saved part of the data segment.
+    pub fn byte(&self, address: u16) -> Option<u8> {
+        let (block, offset) = self.locate(address)?;
+        self.blocks[&block].get(offset).copied()
     }
 
     pub fn set_word(&mut self, address: u16, value: u16) {
@@ -410,6 +425,60 @@ impl GameState {
             .collect()
     }
 
+    /// The 65-byte record of a body (1-based system and body number).
+    pub fn body(&self, system: usize, body: usize) -> Option<&[u8]> {
+        let &(_, data, count) = STAR_SYSTEMS.get(system.checked_sub(1)?)?;
+        if body == 0 || body > count {
+            return None;
+        }
+        let start = (body - 1) * BODY_LEN;
+        self.blocks.get(&data)?.get(start..start + BODY_LEN)
+    }
+
+    /// Whether a star system (1-based) has been discovered (DS:0x4815 + system).
+    pub fn system_known(&self, system: usize) -> bool {
+        self.byte(0x4815 + system as u16) == Some(1)
+    }
+
+    /// The 65-byte record of a planet (1-based system and planet), for editing.
+    pub fn planet_mut(&mut self, system: usize, planet: usize) -> Option<&mut [u8]> {
+        let &(_, data, count) = STAR_SYSTEMS.get(system.checked_sub(1)?)?;
+        if planet == 0 || planet > count {
+            return None;
+        }
+        let start = (planet - 1) * BODY_LEN;
+        self.blocks.get_mut(&data)?.get_mut(start..start + BODY_LEN)
+    }
+
+    /// The message log, oldest first: (kind, text). Kinds 1 and 99 are shown
+    /// highlighted.
+    pub fn messages(&self) -> Vec<(u16, String)> {
+        let count = (self.word(MESSAGE_COUNT).unwrap_or(0) as usize).min(MAX_MESSAGES);
+        self.blocks[&MESSAGES]
+            .chunks_exact(MESSAGE_LEN)
+            .take(count)
+            .map(|m| (u16::from_le_bytes([m[0], m[1]]), pascal(&m[2..])))
+            .collect()
+    }
+
+    /// Adds a message like FUN_34b0_0001: when the log already holds more
+    /// than 14, the oldest is dropped.
+    pub fn add_message(&mut self, kind: u16, text: &str) {
+        let mut count = self.word(MESSAGE_COUNT).unwrap_or(0) as usize;
+        let log = self.blocks.get_mut(&MESSAGES).expect("message block");
+        if count > MAX_MESSAGES - 1 {
+            log.copy_within(MESSAGE_LEN..count * MESSAGE_LEN, 0);
+            count -= 1;
+        }
+        let record = &mut log[count * MESSAGE_LEN..(count + 1) * MESSAGE_LEN];
+        record.fill(0);
+        record[..2].copy_from_slice(&kind.to_le_bytes());
+        let text: Vec<u8> = text.bytes().take(MESSAGE_TEXT_LEN).collect();
+        record[2] = text.len() as u8;
+        record[3..3 + text.len()].copy_from_slice(&text);
+        self.set_word(MESSAGE_COUNT, count as u16 + 1);
+    }
+
     pub fn inventions(&self) -> Vec<Named<'_>> {
         self.records(INVENTIONS)
     }
@@ -499,6 +568,18 @@ mod tests {
         let mut state = state_at([2927, 12, 30, 23]);
         state.advance_hour();
         assert_eq!(state.date(), [2928, 1, 1, 0]);
+    }
+
+    #[test]
+    fn message_log_drops_the_oldest_when_full() {
+        let mut state = state_at([2927, 8, 13, 23]);
+        for i in 0..20 {
+            state.add_message(if i == 19 { 1 } else { 0 }, &format!("message {i}"));
+        }
+        let messages = state.messages();
+        assert_eq!(messages.len(), MAX_MESSAGES);
+        assert_eq!(messages[0].1, "message 5");
+        assert_eq!(messages.last().unwrap(), &(1, "message 19".to_string()));
     }
 
     #[test]

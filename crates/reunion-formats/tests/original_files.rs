@@ -124,6 +124,10 @@ fn reads_planet_surfaces() {
     assert_eq!(exe.sheet_rows(1).unwrap(), (64, 192));
     assert_eq!(exe.screen_trigger(20).unwrap(), Some(41));
     assert_eq!(exe.screen_trigger(14).unwrap(), None);
+    let systems = exe.star_systems().unwrap();
+    assert_eq!(systems[0].name, "Amnesty");
+    assert_eq!(systems[0].moons.len(), 7);
+    assert_eq!(systems[0].moons[4], [13]); // New Earth's moon
     let map = SurfaceMap::decode(&map).unwrap();
     assert_eq!((map.width, map.height), (48, 48));
 }

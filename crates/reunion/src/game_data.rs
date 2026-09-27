@@ -6,7 +6,7 @@
 use bevy::asset::io::Reader;
 use bevy::asset::{AssetLoader, LoadContext};
 use bevy::prelude::*;
-use reunion_formats::exe::{ExeError, GameExe, RoomHotspot, SCREENS, TERRAINS};
+use reunion_formats::exe::{ExeError, GameExe, RoomHotspot, SCREENS, SystemLayout, TERRAINS};
 use reunion_formats::icons::{ICON_HEIGHT, ICON_WIDTH, decode_icons};
 use reunion_formats::map::{MapError, SurfaceMap};
 use reunion_formats::pic::{self, PicError};
@@ -44,14 +44,21 @@ pub struct GameData {
     pub terrain_for_type: Vec<u16>,
     /// Per terrain number (1-11).
     pub terrains: Vec<Terrain>,
+    /// Star system names and moons, system n at index n - 1.
+    pub star_systems: Vec<SystemLayout>,
     /// The state a new game starts from (REUNION.PRG + SAVE/INIT).
     pub new_game: GameState,
     pub font: Font,
+    /// Slot list text colors on the disk screen (normal, selected): DISK.PIC
+    /// palette entries 112-114 and 115-117, which FUN_405f_12e4 and _1317
+    /// reach by adding -0x50 and -0x4d to the font pixels.
+    pub disk_text: [[[u8; 4]; 3]; 2],
 }
 
 /// A planet surface tile set: FELSZ<n>.PIC (static) and FANIM<n>.PIC (animated).
 #[derive(Clone, Copy, Default)]
 pub struct Terrain {
+    pub habitable: bool,
     pub static_tiles: u16,
     pub fanim_rows: u16,
 }
@@ -166,6 +173,15 @@ impl AssetLoader for GameDataLoader {
         };
         let icon_all = read("ICON/ICON.ALL").await?;
         let init = read("SAVE/INIT").await?;
+        let disk_palette = pic::decode(&read("GRAFIKA/DISK.PIC").await?)?.palette;
+        let color = |i: usize| {
+            let [r, g, b] = disk_palette[i];
+            [r, g, b, 255]
+        };
+        let disk_text = [
+            [color(112), color(113), color(114)],
+            [color(115), color(116), color(117)],
+        ];
         let icon_palette = pic::decode(&read("ICON/ICONMAIN.PIC").await?)?.palette;
         let charset = pic::decode(&read("GRAFIKA/CHARSET1.PIC").await?)?;
 
@@ -204,6 +220,7 @@ impl AssetLoader for GameDataLoader {
                 .map(|s| exe.icon_set(s))
                 .collect::<Result<_, _>>()?,
             main_room: exe.main_room()?,
+            star_systems: exe.star_systems()?,
             screen_triggers: (0..=SCREENS)
                 .map(|s| exe.screen_trigger(s))
                 .collect::<Result<_, _>>()?,
@@ -214,6 +231,7 @@ impl AssetLoader for GameDataLoader {
                 .map(|t| {
                     let (_, fanim_rows) = exe.sheet_rows(t)?;
                     Ok(Terrain {
+                        habitable: exe.habitable(t)?,
                         static_tiles: exe.static_tiles(t)?,
                         fanim_rows,
                     })
@@ -222,6 +240,7 @@ impl AssetLoader for GameDataLoader {
             // The original seeds its one random start value from the clock;
             // a fixed seed keeps new games reproducible for now.
             new_game: GameState::new_game(&exe, &init, 0)?,
+            disk_text,
             font: Font {
                 order: exe.charset_order()?,
                 width: charset.width as usize,

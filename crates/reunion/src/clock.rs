@@ -5,7 +5,7 @@
 use bevy::prelude::*;
 
 use crate::game::Game;
-use crate::screen::in_game;
+use crate::screen::{GameScreen, in_game};
 
 const VGA_REFRESH_HZ: f64 = 70.086;
 const FRAMES_PER_HOUR: f64 = 101.0;
@@ -25,7 +25,15 @@ impl Plugin for ClockPlugin {
 #[derive(Resource, Default)]
 struct Frames(f64);
 
-fn tick(time: Res<Time>, mut frames: ResMut<Frames>, mut game: ResMut<Game>) {
+fn tick(
+    time: Res<Time>,
+    screen: Res<State<GameScreen>>,
+    mut frames: ResMut<Frames>,
+    mut game: ResMut<Game>,
+) {
+    if screen.get().pauses_time() {
+        return;
+    }
     frames.0 += time.delta_secs_f64() * VGA_REFRESH_HZ;
     while frames.0 >= FRAMES_PER_HOUR {
         frames.0 -= FRAMES_PER_HOUR;

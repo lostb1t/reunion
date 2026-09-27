@@ -124,35 +124,52 @@ fn navigate(
     } else {
         Vec2::new(0.0, -v.y.signum())
     };
-    let centers = || hotspots.iter().map(|(e, h)| (e, h.rect.center()));
+    let rects = || hotspots.iter().map(|(e, h)| (e, h.rect));
     let from = focus
         .0
         .and_then(|e| hotspots.get(e).ok())
-        .map(|(_, h)| h.rect.center());
+        .map(|(_, h)| h.rect);
     focus.0 = match from {
-        Some(from) => next_in_direction(from, dir, centers()).or(focus.0),
-        None => centers()
+        Some(from) => next_in_direction(from, dir, rects()).or(focus.0),
+        None => rects()
             .min_by(|a, b| {
-                (a.1.y, a.1.x)
-                    .partial_cmp(&(b.1.y, b.1.x))
+                (a.1.min.y, a.1.min.x)
+                    .partial_cmp(&(b.1.min.y, b.1.min.x))
                     .unwrap_or(std::cmp::Ordering::Equal)
             })
             .map(|(e, _)| e),
     };
 }
 
-/// Nearest candidate ahead of `from` in `dir`, preferring ones in line with it.
-/// Wraps around to the far side when nothing is ahead.
+/// The next hotspot from `from` in `dir`, like D-pad navigation in console UIs:
+/// first the nearest one in line (overlapping `from` across the direction, so
+/// moving along the icon bar stays in the bar), then the nearest one ahead at
+/// all. With nothing ahead it wraps around to the far side.
 fn next_in_direction<T: Copy>(
-    from: Vec2,
+    from: Rect,
     dir: Vec2,
-    candidates: impl Iterator<Item = (T, Vec2)> + Clone,
+    candidates: impl Iterator<Item = (T, Rect)> + Clone,
 ) -> Option<T> {
-    let scored = |ahead: bool| {
+    let origin = from.center();
+    // Extent of a rect across the direction of travel.
+    let across_range = |r: Rect| {
+        if dir.x != 0.0 {
+            (r.min.y, r.max.y)
+        } else {
+            (r.min.x, r.max.x)
+        }
+    };
+    let (from_lo, from_hi) = across_range(from);
+    let in_line = |r: Rect| {
+        let (lo, hi) = across_range(r);
+        lo < from_hi && hi > from_lo
+    };
+    let best = |ahead: bool, only_in_line: bool| {
         candidates
             .clone()
-            .filter_map(move |(item, center)| {
-                let d = center - from;
+            .filter(move |(_, rect)| !only_in_line || in_line(*rect))
+            .filter_map(move |(item, rect)| {
+                let d = rect.center() - origin;
                 let along = d.dot(dir);
                 let across = (d - dir * along).length();
                 let in_direction = if ahead { along > 0.5 } else { along < -0.5 };
@@ -161,7 +178,10 @@ fn next_in_direction<T: Copy>(
             .min_by(|a, b| a.1.total_cmp(&b.1))
             .map(|(item, _)| item)
     };
-    scored(true).or_else(|| scored(false))
+    best(true, true)
+        .or_else(|| best(true, false))
+        .or_else(|| best(false, true))
+        .or_else(|| best(false, false))
 }
 
 fn confirm(_: On<Start<Confirm>>, focus: Res<Focus>, mut commands: Commands) {
@@ -345,10 +365,10 @@ mod tests {
     use super::*;
 
     // The three main menu items, stacked vertically.
-    const ITEMS: [(u8, Vec2); 3] = [
-        (0, Vec2::new(163.0, 62.0)),
-        (1, Vec2::new(163.0, 90.0)),
-        (2, Vec2::new(163.0, 119.0)),
+    const ITEMS: [(u8, Rect); 3] = [
+        (0, Rect::new(75.0, 48.0, 251.0, 76.0)),
+        (1, Rect::new(75.0, 76.0, 251.0, 105.0)),
+        (2, Rect::new(75.0, 105.0, 251.0, 133.0)),
     ];
 
     #[test]
@@ -374,6 +394,20 @@ mod tests {
         assert_eq!(
             next_in_direction(ITEMS[0].1, -down, ITEMS.into_iter()),
             Some(2)
+        );
+    }
+
+    #[test]
+    fn sideways_stays_in_the_icon_bar() {
+        // The Steam Deck bug: from the page button, left jumped into the room
+        // (INFO-BUY) instead of the next icon along the bar.
+        let bar_slot = (0u8, Rect::new(73.0, 0.0, 121.0, 32.0));
+        let page_button = Rect::new(313.0, 0.0, 345.0, 32.0);
+        let info_buy = (1u8, Rect::new(255.0, 49.0, 320.0, 137.0));
+        let left = Vec2::new(-1.0, 0.0);
+        assert_eq!(
+            next_in_direction(page_button, left, [bar_slot, info_buy].into_iter()),
+            Some(0)
         );
     }
 
