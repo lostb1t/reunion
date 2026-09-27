@@ -1,0 +1,15 @@
+# Original game data and anything derived from it — not ours to publish.
+/Reunion_DOS_EN.zip
+/game/
+/docs/
+/extracted/
+/ghidra/
+/crates/reunion/assets
+
+# Build output
+/target/
+/build/
+/dist/
+/.venv/
+__pycache__/
+.DS_Store

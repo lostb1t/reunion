@@ -1,0 +1,10 @@
+[package]
+name = "reunion"
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+reunion-formats = { path = "../reunion-formats" }
+bevy = { version = "0.19.1", default-features = false, features = ["2d"] }
+bevy_enhanced_input = "0.26"
+thiserror = "2"
