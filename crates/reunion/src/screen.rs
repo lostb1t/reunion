@@ -4,6 +4,11 @@
 //! from the decompiled game can be used as-is. The picture is stretched 1.2x
 //! vertically like a 4:3 CRT did, and a wider window shows extra space at the
 //! sides instead of distorting it.
+//!
+//! Widescreen: [`ViewBounds`] is the visible area in game coordinates, e.g.
+//! x -32..352 on a 16:10 screen. Wide screens lay their interface out across
+//! it and draw extension art (from the `art://` source) beside the original
+//! pictures; 4:3 screens just leave the sides black.
 
 use bevy::camera::ScalingMode;
 use bevy::prelude::*;
@@ -19,6 +24,67 @@ pub enum GameScreen {
     #[default]
     MainMenu,
     ChooseHero,
+    HeroIntro,
+    MainScreen,
+    PlanetMain,
+}
+
+impl GameScreen {
+    /// Whether the screen uses the space beside the original 320 columns.
+    /// Title screens, portraits and cutscenes stay 4:3.
+    pub fn is_wide(self) -> bool {
+        self.number().is_some()
+    }
+
+    /// The original's screen number (DS:0x95e6) for in-game screens; also
+    /// the index of the screen's icon bar set.
+    pub fn number(self) -> Option<u8> {
+        match self {
+            GameScreen::MainScreen => Some(1),
+            GameScreen::PlanetMain => Some(20),
+            _ => None,
+        }
+    }
+
+    pub fn from_number(number: u8) -> Option<Self> {
+        Self::IN_GAME
+            .into_iter()
+            .find(|s| s.number() == Some(number))
+    }
+
+    /// All in-game screens (the ones with the icon bar and text strip).
+    pub const IN_GAME: [GameScreen; 2] = [GameScreen::MainScreen, GameScreen::PlanetMain];
+}
+
+/// Run condition: an in-game screen is showing.
+pub fn in_game(screen: Res<State<GameScreen>>) -> bool {
+    screen.get().number().is_some()
+}
+
+/// Play in the original 4:3 even on wide screens.
+#[derive(Resource)]
+pub struct Widescreen(pub bool);
+
+/// Horizontal extent of the visible area in game coordinates, whole pixels.
+#[derive(Resource, Clone, Copy, PartialEq, Debug)]
+pub struct ViewBounds {
+    pub left: f32,
+    pub right: f32,
+}
+
+impl ViewBounds {
+    pub fn width(self) -> f32 {
+        self.right - self.left
+    }
+}
+
+impl Default for ViewBounds {
+    fn default() -> Self {
+        Self {
+            left: 0.0,
+            right: GAME_WIDTH,
+        }
+    }
 }
 
 pub struct ScreenPlugin;
@@ -26,8 +92,33 @@ pub struct ScreenPlugin;
 impl Plugin for ScreenPlugin {
     fn build(&self, app: &mut App) {
         app.init_state::<GameScreen>()
-            .add_systems(Startup, spawn_camera);
+            .insert_resource(Widescreen(true))
+            .init_resource::<ViewBounds>()
+            .add_systems(Startup, spawn_camera)
+            .add_systems(PreUpdate, update_view_bounds);
     }
+}
+
+fn update_view_bounds(
+    projection: Single<&Projection, With<Camera2d>>,
+    widescreen: Res<Widescreen>,
+    screen: Res<State<GameScreen>>,
+    mut bounds: ResMut<ViewBounds>,
+) {
+    let Projection::Orthographic(ortho) = *projection else {
+        return;
+    };
+    let new = if widescreen.0 && screen.get().is_wide() {
+        // The area is centered on the game's center; floor to whole pixels.
+        let half = (ortho.area.width() / 2.0).floor().max(GAME_WIDTH / 2.0);
+        ViewBounds {
+            left: GAME_WIDTH / 2.0 - half,
+            right: GAME_WIDTH / 2.0 + half,
+        }
+    } else {
+        ViewBounds::default()
+    };
+    bounds.set_if_neq(new);
 }
 
 fn spawn_camera(mut commands: Commands) {
@@ -59,8 +150,11 @@ pub fn world_to_game(pos: Vec2) -> Vec2 {
 
 /// Transform that places a top-left anchored sprite at `pos` in game coordinates.
 pub fn place(pos: Vec2, z: f32) -> Transform {
-    Transform::from_translation(game_to_world(pos).extend(z))
-        .with_scale(Vec3::new(1.0, PIXEL_ASPECT, 1.0))
+    Transform::from_translation(game_to_world(pos).extend(z)).with_scale(Vec3::new(
+        1.0,
+        PIXEL_ASPECT,
+        1.0,
+    ))
 }
 
 /// An original picture drawn at `pos` in game coordinates.

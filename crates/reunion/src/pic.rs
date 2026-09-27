@@ -40,7 +40,11 @@ impl AssetLoader for PicLoader {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
         let pic = pic::decode(&bytes)?;
-        Ok(rgba_image(pic.width.into(), pic.height.into(), pic.to_rgba()))
+        Ok(rgba_image(
+            pic.width.into(),
+            pic.height.into(),
+            pic.to_rgba(),
+        ))
     }
 
     fn extensions(&self) -> &[&str] {

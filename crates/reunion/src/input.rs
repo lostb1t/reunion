@@ -20,6 +20,11 @@ pub struct UiInput;
 #[action_output(Vec2)]
 pub struct Navigate;
 
+/// Scroll a map (planet surface). Repeats while held.
+#[derive(InputAction)]
+#[action_output(Vec2)]
+pub struct Scroll;
+
 /// Activate the focused hotspot.
 #[derive(InputAction)]
 #[action_output(bool)]
@@ -43,12 +48,13 @@ fn spawn_ui_input(mut commands: Commands) {
                 Action::<Navigate>::new(),
                 DeadZone::default(),
                 Pulse::new(0.12).with_initial_delay(0.35),
-                Bindings::spawn((
-                    Cardinal::arrows(),
-                    Cardinal::wasd_keys(),
-                    Cardinal::dpad(),
-                    Axial::left_stick(),
-                )),
+                Bindings::spawn((Cardinal::arrows(), Cardinal::dpad(), Axial::left_stick())),
+            ),
+            (
+                Action::<Scroll>::new(),
+                DeadZone::default(),
+                Pulse::new(0.08).with_initial_delay(0.25),
+                Bindings::spawn((Cardinal::wasd_keys(), Axial::right_stick())),
             ),
             (
                 Action::<Confirm>::new(),

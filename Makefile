@@ -75,6 +75,7 @@ web: game
 	wasm-bindgen --target web --no-typescript --out-name reunion --out-dir $(WEB) $(WASM_OUT)
 	cp web/index.html $(WEB)/
 	rsync -a --delete --delete-excluded --exclude CRACK --exclude '*.zip' --exclude '*.COM' --exclude JS_RETRN.EXE game/ $(WEB)/assets/
+	rsync -a --delete --exclude .gitkeep crates/reunion/art/ $(WEB)/art/
 
 serve: web
 	@echo "Open http://localhost:$(PORT)"

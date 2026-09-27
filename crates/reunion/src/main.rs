@@ -1,17 +1,36 @@
+// Bevy systems routinely take many parameters and nested query types.
+#![allow(clippy::too_many_arguments, clippy::type_complexity)]
+
+mod autopilot;
+mod clock;
 mod focus;
+mod game;
+mod game_data;
+mod hero;
+mod hud;
 mod input;
+mod main_screen;
 mod menu;
 mod pic;
+mod planet;
 mod screen;
+mod transition;
 
 use bevy::asset::AssetMetaCheck;
+use bevy::asset::io::AssetSourceBuilder;
 use bevy::prelude::*;
 use bevy::window::WindowResolution;
 use bevy_enhanced_input::prelude::*;
 
 fn main() {
-    App::new()
-        .insert_resource(ClearColor(Color::BLACK))
+    let mut app = App::new();
+    // Release builds log system errors instead of crashing the game.
+    if !cfg!(debug_assertions) {
+        app.set_error_handler(bevy::ecs::error::warn);
+    }
+    app.insert_resource(ClearColor(Color::BLACK))
+        // Our own art (widescreen extensions), next to the player's game files.
+        .register_asset_source("art", AssetSourceBuilder::platform_default("art", None))
         .add_plugins(
             DefaultPlugins
                 .set(WindowPlugin {
@@ -39,6 +58,15 @@ fn main() {
             input::InputPlugin,
             focus::FocusPlugin,
             menu::MenuPlugin,
+            hero::HeroPlugin,
+            transition::TransitionPlugin,
+            game_data::GameDataPlugin,
+            main_screen::MainScreenPlugin,
+            game::GamePlugin,
+            hud::HudPlugin,
+            planet::PlanetPlugin,
+            clock::ClockPlugin,
+            autopilot::AutopilotPlugin,
         ))
         .run();
 }

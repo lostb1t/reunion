@@ -79,11 +79,19 @@ pub fn decode(data: &[u8]) -> Result<Pic, PicError> {
     pixels.resize(need, 0);
 
     let mut palette = [[0u8; 3]; 256];
-    for (entry, rgb) in palette.iter_mut().zip(data[palette_start..].chunks_exact(3)) {
+    for (entry, rgb) in palette
+        .iter_mut()
+        .zip(data[palette_start..].chunks_exact(3))
+    {
         entry.copy_from_slice(rgb);
     }
 
-    Ok(Pic { width, height, pixels, palette })
+    Ok(Pic {
+        width,
+        height,
+        pixels,
+        palette,
+    })
 }
 
 #[cfg(test)]
@@ -115,6 +123,9 @@ mod tests {
 
     #[test]
     fn rejects_other_files() {
-        assert!(matches!(decode(b"not an image at all"), Err(PicError::BadMagic)));
+        assert!(matches!(
+            decode(b"not an image at all"),
+            Err(PicError::BadMagic)
+        ));
     }
 }

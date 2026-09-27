@@ -1,3 +1,12 @@
 //! Decoders for the original Reunion (1994) data files.
+//!
+//! Nothing here contains game data: everything is decoded from the player's
+//! own copy of the game.
 
+pub mod exe;
+pub mod grwar;
+pub mod icons;
+pub mod map;
 pub mod pic;
+pub mod state;
+pub mod text;

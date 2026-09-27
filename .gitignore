@@ -13,3 +13,6 @@
 /.venv/
 __pycache__/
 .DS_Store
+
+# Downloaded models (tools/widen.py)
+/tools/models/
