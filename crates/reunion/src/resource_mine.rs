@@ -20,6 +20,7 @@ use bevy::sprite::Anchor;
 use reunion_formats::colony::{MINE, MINER_STATION, building};
 use reunion_formats::state::UnitList;
 
+use crate::audio::Sfx;
 use crate::focus::{Activated, Hover, hotspot};
 use crate::game::Game;
 use crate::game_data::{GameData, GameDataHandle};
@@ -184,6 +185,7 @@ fn spawn_view(
 
 fn back(activated: On<Activated>, surface: Query<(), With<Surface>>, mut commands: Commands) {
     if surface.contains(activated.0) {
+        commands.trigger(Sfx::named("surface"));
         commands.trigger(GoTo(GameScreen::PlanetMain));
     }
 }
@@ -195,6 +197,7 @@ fn add_droid(
     game: Option<ResMut<Game>>,
     handle: Res<GameDataHandle>,
     data: Res<Assets<GameData>>,
+    mut commands: Commands,
 ) {
     if action.0 != ADD_DROIDS || *screen.get() != GameScreen::ResourceMine {
         return;
@@ -208,6 +211,7 @@ fn add_droid(
     if mining.stock == 0 || usize::from(droids) >= mining.mines || r[6] == 0 || r[0] != 1 || droids >= MAX_DROIDS {
         return;
     }
+    commands.trigger(Sfx::named("addroid"));
     if let Some(record) = game.0.planet_mut(mining.place.0 as usize, mining.body) {
         record[0x0a] = droids + 1;
     }

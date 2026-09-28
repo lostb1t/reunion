@@ -45,6 +45,11 @@ pub struct Alternate;
 #[action_output(bool)]
 pub struct Click;
 
+/// Switch to the next upscaling filter.
+#[derive(InputAction)]
+#[action_output(bool)]
+pub struct CycleUpscale;
+
 fn spawn_ui_input(mut commands: Commands) {
     commands.spawn((
         UiInput,
@@ -76,6 +81,10 @@ fn spawn_ui_input(mut commands: Commands) {
             (
                 Action::<Click>::new(),
                 bindings![MouseButton::Left],
+            ),
+            (
+                Action::<CycleUpscale>::new(),
+                bindings![KeyCode::F8, GamepadButton::LeftThumb],
             ),
         ]),
     ));

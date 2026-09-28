@@ -9,17 +9,25 @@
 //!
 //! On your own populated planet the icon bar gains INCREASE / DECREASE TAX,
 //! which change the tax level (byte 0x12, 0-7).
+//!
+//! The pictures on the left are buttons (FUN_357b_0031): the owner's
+//! (SEE OWNER INFO, once surveyed past 39: FUN_357b_1515), SHIPS, and the
+//! planet's (SEE SURFACE, past 5: PLANETS/NAGY<type>, FUN_357b_1825). A page
+//! covers the screen until it's clicked.
 
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
 use reunion_formats::deploy;
 
+use crate::audio::Sfx;
+use crate::focus::{Activated, Hover, hotspot};
 use crate::game::{Game, random};
+use crate::text::{Label, label};
 use crate::popup::ShowMessage;
 use crate::transition::GoTo;
 use crate::game_data::{GameData, GameDataHandle};
-use crate::hud::{ActionUsed, CONTENT_Y, ExtraActions, YELLOW_TEXT};
+use crate::hud::{ActionUsed, CONTENT_Y, ExtraActions, HoverLabel, RED_TEXT, YELLOW_TEXT};
 use crate::pic::MASKED;
 use crate::screen::{GameScreen, picture, place};
 
@@ -36,6 +44,7 @@ impl Plugin for PlanetInfoPlugin {
             (update_texts, deploy_icons).run_if(in_state(GameScreen::PlanetInfo)),
         )
         .add_observer(change_tax)
+        .add_observer(press)
         .add_observer(deploy);
     }
 }
@@ -142,6 +151,13 @@ fn enter(
             scoped.clone(),
         ));
     }
+    for (button, rect, name) in [
+        (Button::Owner, Rect::new(1.0, 49.0, 58.0, 96.0), "SEE OWNER INFO"),
+        (Button::Ships, Rect::new(1.0, 97.0, 58.0, 144.0), "SHIPS"),
+        (Button::Surface, Rect::new(1.0, 145.0, 97.0, 200.0), "SEE SURFACE"),
+    ] {
+        commands.spawn((button, HoverLabel(name.into()), hotspot(rect, Hover::Outline), scoped.clone()));
+    }
     let (Some(game), Some(data)) = (game, data.get(&handle.0)) else {
         return;
     };
@@ -200,6 +216,133 @@ fn enter(
         ));
     }
     extra.0 = icons(&game, data, (system as u8, planet as u8, moon as u8), body);
+}
+
+/// The picture buttons, and a page's.
+#[derive(Component, Clone, Copy, PartialEq)]
+enum Button {
+    Owner,
+    Ships,
+    Surface,
+    Back,
+}
+
+/// A page over the screen.
+#[derive(Component, Clone)]
+struct PagePart;
+
+/// FUN_1413_000a: the pictures' buttons.
+fn press(
+    activated: On<Activated>,
+    buttons: Query<&Button>,
+    pages: Query<Entity, With<PagePart>>,
+    game: Option<Res<Game>>,
+    handle: Res<GameDataHandle>,
+    data: Res<Assets<GameData>>,
+    asset_server: Res<AssetServer>,
+    mut commands: Commands,
+) {
+    let (Ok(&button), Some(game), Some(data)) = (buttons.get(activated.0), game, data.get(&handle.0)) else {
+        return;
+    };
+    let (system, _, _) = game.selection();
+    let Some(record) = game.selected_body(&data.star_systems).and_then(|b| record(&game, system, b)) else {
+        return;
+    };
+    let scoped = (PagePart, DespawnOnExit(GameScreen::PlanetInfo));
+    let survey = record[field::SURVEY] as i8;
+    match button {
+        Button::Ships => {
+            commands.trigger(Sfx::named("baseeff"));
+            commands.trigger(GoTo(GameScreen::ShipInfo));
+            return;
+        }
+        Button::Back => {
+            commands.trigger(Sfx::named("x"));
+            for page in &pages {
+                commands.entity(page).despawn();
+            }
+            return;
+        }
+        Button::Owner => {
+            commands.trigger(Sfx::named("x"));
+            if record[field::OWNER] < 2 || survey < 0x28 {
+                return;
+            }
+            owner_page(&mut commands, &game, data, &record, &asset_server, scoped.clone());
+        }
+        Button::Surface => {
+            commands.trigger(Sfx::named("x"));
+            if survey < 6 {
+                return;
+            }
+            commands.spawn((
+                picture(asset_server.load(format!("PLANETS/NAGY{}.PIC", record[field::TYPE])), Vec2::new(0.0, CONTENT_Y)),
+                scoped.clone(),
+            ))
+            .insert(place(Vec2::new(0.0, CONTENT_Y), 5.0));
+        }
+    }
+    commands.spawn((
+        Button::Back,
+        HoverLabel("SEE PLANET INFO".into()),
+        hotspot(Rect::new(0.0, CONTENT_Y, 320.0, 200.0), Hover::Outline),
+        scoped,
+    ));
+}
+
+/// FUN_357b_1515 / 1671: GRAFIKA/ALIENNFO, the race's portrait and its
+/// twelve lines, and what weapons it has here when you've spied on it.
+fn owner_page(
+    commands: &mut Commands,
+    game: &Game,
+    data: &GameData,
+    record: &[u8],
+    asset_server: &AssetServer,
+    scoped: impl Bundle + Clone,
+) {
+    let race = record[field::OWNER];
+    commands.spawn((picture(asset_server.load("GRAFIKA/ALIENNFO.PIC"), Vec2::new(0.0, CONTENT_Y)), scoped.clone()))
+        .insert(place(Vec2::new(0.0, CONTENT_Y), 5.0));
+    commands.spawn((
+        Sprite {
+            image: asset_server.load(format!("ALIEN/ALIEN{race}.PIC")),
+            rect: Some(Rect::new(0.0, 0.0, 98.0, 143.0)),
+            ..default()
+        },
+        Anchor::TOP_LEFT,
+        place(Vec2::new(2.0, 54.0), 5.1),
+        scoped.clone(),
+    ));
+    let text = |commands: &mut Commands, s: &str, columns: usize, colors, at: Vec2| {
+        commands.spawn((label(Label::new(s, columns, colors), at), scoped.clone())).insert(place(at, 5.2));
+    };
+    if let Some(lines) = data.race_texts.get(usize::from(race).wrapping_sub(1)) {
+        text(commands, &lines[0], 35, RED_TEXT, Vec2::new(105.0, 54.0));
+        for (k, line) in lines.iter().enumerate().skip(1) {
+            text(commands, line, 35, YELLOW_TEXT, Vec2::new(105.0, 54.0 + 9.0 * (k + 1) as f32));
+        }
+    }
+    // A spy ship there, or the Stranger's report on their weapons.
+    let spied = record[field::SPY_SHIP] != 0 || game.0.byte(0x6517 + u16::from(race)) == Some(2);
+    if !spied {
+        return;
+    }
+    let race_at = 0x6a06 + 0xe4 * u16::from(race);
+    for k in 1..=8u16 {
+        let (has, x) = if k <= 4 { (race_at + 0x12 + k, 104.0) } else { (race_at + 0x16 + k - 4, 197.0) };
+        if game.0.byte(has).unwrap_or(0) == 0 {
+            continue;
+        }
+        let at = 0x17 + 4 * usize::from(k);
+        let count = i32::from_le_bytes([record[at], record[at + 1], record[at + 2], record[at + 3]]);
+        let weapon = data.exe.ds_bytes(0x6bc5 + k, 1).map_or(0, |b| u16::from(b[0]));
+        let name = data.exe.ds_string(0x5d77 + 0x35 * weapon).unwrap_or_default();
+        let y = 156.0 + 9.0 * f32::from((k - 1) % 4);
+        text(commands, &name, 16, YELLOW_TEXT, Vec2::new(x, y));
+        text(commands, ":", 1, YELLOW_TEXT, Vec2::new(x + 66.0, y));
+        text(commands, &format!("{count:>3}"), 3, RED_TEXT, Vec2::new(x + 72.0, y));
+    }
 }
 
 /// The icon bar's extras: FUN_1413_000a's INCREASE / DECREASE TAX on your

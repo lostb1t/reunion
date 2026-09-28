@@ -15,7 +15,10 @@ use bevy::sprite::Anchor;
 use bevy_enhanced_input::prelude::*;
 use reunion_formats::story::Event;
 
+use crate::anim_player::{AnimPlayer, Delay, Segment, anim_player, position};
+use crate::game_data::{GameData, GameDataHandle};
 use crate::input::{Back, Click, Confirm};
+use crate::pic::PALETTE;
 use crate::popup::{PopupOpen, ShowMessage};
 use crate::screen::{GameScreen, place};
 use crate::transition::GoTo;
@@ -71,12 +74,12 @@ fn play(
     let busy = matches!(
         screen.get(),
         GameScreen::StoryScene
+            | GameScreen::Cutscene
             | GameScreen::AlienTalk
             | GameScreen::PubTalk
             | GameScreen::SpaceBattle
             | GameScreen::GroundSetup
             | GameScreen::GroundWar
-            | GameScreen::GameEnd
             | GameScreen::Colonize
             | GameScreen::CreateUnit
             | GameScreen::DiskOperations
@@ -98,14 +101,54 @@ fn play(
     }
 }
 
-fn show_scene(mut commands: Commands, showing: Option<Res<Showing>>, asset_server: Res<AssetServer>) {
+fn show_scene(
+    mut commands: Commands,
+    showing: Option<Res<Showing>>,
+    asset_server: Res<AssetServer>,
+    handle: Res<GameDataHandle>,
+    data: Res<Assets<GameData>>,
+) {
     let n = showing.map_or(1, |s| s.0);
+    let path = format!("PICS/PIC{n}.PIC");
     commands.spawn((
-        Sprite::from_image(asset_server.load(format!("PICS/PIC{n}.PIC"))),
+        Sprite::from_image(asset_server.load(&path)),
         Anchor::TOP_LEFT,
         place(Vec2::ZERO, 20.0),
         DespawnOnExit(GameScreen::StoryScene),
     ));
+    // FUN_2e4b_0044: some pictures move, with their sounds.
+    let segment = |main: u16, from, to, delay: Delay| Segment {
+        animation: asset_server.load(format!("ANIM/MAIN{main}.ANI")),
+        from,
+        to,
+        delay,
+        sounds: Vec::new(),
+        end_sound: None,
+        looping: false,
+    };
+    let segments = match n {
+        1 => vec![Segment { looping: true, ..segment(10, 2, 3, Delay::Fixed(10)) }],
+        2 => vec![segment(14, 2, 71, Delay::Fixed(6))],
+        9 => vec![
+            Segment { sounds: vec![(5, "satrobb1")], end_sound: Some("satrobb2"), ..segment(8, 1, 34, Delay::Fixed(2)) },
+            Segment { sounds: vec![(18, "satrobb3")], ..segment(9, 1, 41, Delay::PerFrame(|k| if k > 28 { 5 } else { 1 })) },
+        ],
+        10 => vec![Segment { sounds: vec![(10, "tractor")], ..segment(13, 1, 41, Delay::Fixed(5)) }],
+        _ => Vec::new(),
+    };
+    if let (false, Some(data)) = (segments.is_empty(), data.get(&handle.0)) {
+        let main = match n {
+            1 => 10,
+            2 => 14,
+            9 => 8,
+            _ => 13,
+        };
+        let at = position(&data.exe, main);
+        commands.spawn((
+            anim_player(AnimPlayer::new(segments, asset_server.load(format!("{path}#{PALETTE}"))), at, 21.0),
+            DespawnOnExit(GameScreen::StoryScene),
+        ));
+    }
 }
 
 fn end_scene<A: InputAction>(

@@ -20,11 +20,14 @@ use bevy::prelude::*;
 use bevy::sprite::Anchor;
 use reunion_formats::ground::{COLUMNS, GroundBattle, Outcome, ROWS};
 
+use crate::anim_player::{AnimPlayer, Delay, Segment, anim_player};
+use crate::cutscene::{self, Cutscenes};
+use crate::audio::Sfx;
 use crate::focus::{Activated, AlternateUse, DefaultFocus, Hover, hotspot};
 use crate::game::{Game, random};
 use crate::game_data::{GameData, GameDataHandle};
 use crate::hud::{ActionUsed, CONTENT_Y, ExtraActions, HoverLabel, IconSetOverride, YELLOW_TEXT};
-use crate::pic::{MASKED, rgba_image};
+use crate::pic::{MASKED, PALETTE, rgba_image};
 use crate::screen::{GameScreen, place};
 use crate::space_battle::BattleStart;
 use crate::story::Tell;
@@ -38,15 +41,13 @@ impl Plugin for GroundWarPlugin {
         app.add_systems(OnEnter(GameScreen::GroundSetup), enter_setup)
             .add_systems(Update, show_setup.run_if(in_state(GameScreen::GroundSetup)))
             .add_systems(OnEnter(GameScreen::GroundWar), enter_battle)
-            .add_systems(Update, (fight, draw, show_selected).chain().run_if(in_state(GameScreen::GroundWar)))
-            .add_systems(OnEnter(GameScreen::GameEnd), enter_end)
+            .add_systems(Update, (fight, draw, show_selected, panel_animation).chain().run_if(in_state(GameScreen::GroundWar)))
             .add_observer(setup_action)
             .add_observer(setup_place)
             .add_observer(setup_less)
             .add_observer(battle_action)
             .add_observer(battle_click)
-            .add_observer(battle_order)
-            .add_observer(end_click);
+            .add_observer(battle_order);
     }
 }
 
@@ -79,9 +80,6 @@ enum Mode {
     Attack,
 }
 
-/// How the game ended (screen 35 or 36).
-#[derive(Resource, Clone, Copy)]
-pub struct GameEnd(pub Outcome);
 
 #[derive(Component, Clone)]
 struct SetupPart;
@@ -288,6 +286,18 @@ fn enter_battle(
         place(Vec2::new(0.0, CONTENT_Y), 0.0),
         scoped.clone(),
     ));
+    // FUN_3abd_0f19: the panel's animation (WAR/GRWAR/GRANIM<n>), rows 1-79
+    // at (3, 52).
+    commands.spawn((
+        PanelAnimation,
+        anim_player(
+            AnimPlayer::new(Vec::new(), asset_server.load(format!("WAR/GRWAR.PIC#{PALETTE}")))
+                .with_crop(Rect::new(0.0, 1.0, 58.0, 80.0)),
+            Vec2::new(3.0, 52.0),
+            0.1,
+        ),
+        scoped.clone(),
+    ));
     let image = images.add(rgba_image(256, 151, vec![0; 256 * 151 * 4]));
     commands.spawn((
         Sprite::from_image(image.clone()),
@@ -352,7 +362,10 @@ fn fight(
     let cheat = game.0.byte(0x91e8).unwrap_or(0) != 0;
     while war.frames >= 1.0 && !war.battle.over {
         war.frames -= 1.0;
-        war.battle.frame(cheat, &mut random);
+        let sound = war.battle.frame(cheat, &mut random);
+        if sound != 0 {
+            commands.trigger(Sfx::ground(sound));
+        }
         war.changed = true;
     }
     if !war.battle.over && !war.retreated {
@@ -361,6 +374,10 @@ fn fight(
     // FUN_1537_312c: the result.
     let losses = war.battle.finish(&mut game.0, &data.exe);
     war.result = Some(losses);
+    // After a retreat its own sound goes on playing.
+    if !war.retreated {
+        commands.trigger(Sfx::named("endbattl"));
+    }
     war.selected = None;
     for cell in &cells {
         commands.entity(cell).despawn();
@@ -387,6 +404,44 @@ fn fight(
             let text = format!("{:>4}", losses[side][k - 1].max(0));
             commands.spawn((label(Label::new(text, 4, YELLOW_TEXT), at), scoped.clone())).insert(place(at, 1.1));
         }
+    }
+}
+
+#[derive(Component)]
+struct PanelAnimation;
+
+/// FUN_1537_11f2: a random one of the 14 animations with a kind of unit
+/// that's in the battle (DS:0x5654 + 5 * n); it plays DS:0x5653 times, a
+/// frame every DS:0x5652 steps.
+fn panel_animation(
+    war: Option<Res<War>>,
+    handle: Res<GameDataHandle>,
+    data: Res<Assets<GameData>>,
+    asset_server: Res<AssetServer>,
+    mut players: Query<&mut AnimPlayer, With<PanelAnimation>>,
+) {
+    let (Some(war), Some(data)) = (war, data.get(&handle.0)) else { return };
+    let Ok(mut player) = players.single_mut() else { return };
+    if !player.segments.is_empty() || war.result.is_some() {
+        return;
+    }
+    let present = |kind: u8| {
+        (1..=4).contains(&kind) && war.battle.forces.iter().any(|f| f.pieces[usize::from(kind) - 1] > 0)
+    };
+    let entry = |n: u16| data.exe.ds_bytes(0x5651 + 5 * n, 5).map(<[u8]>::to_vec).unwrap_or_default();
+    let candidates: Vec<u16> = (1..=14).filter(|&n| entry(n).get(3..5).is_some_and(|k| present(k[0]) || present(k[1]))).collect();
+    let Some(&n) = candidates.get(usize::from(random(candidates.len().max(1) as u16))) else { return };
+    let e = entry(n);
+    for _ in 0..e[2].max(1) {
+        player.segments.push_back(Segment {
+            animation: asset_server.load(format!("WAR/GRWAR/GRANIM{n}.ANI")),
+            from: 1,
+            to: usize::from(e[0]),
+            delay: Delay::Fixed(u32::from(e[1])),
+            sounds: Vec::new(),
+            end_sound: None,
+            looping: false,
+        });
     }
 }
 
@@ -535,17 +590,23 @@ fn battle_click(
     cells: Query<&Cell>,
     buttons: Query<&Button>,
     war: Option<ResMut<War>>,
+    mut commands: Commands,
 ) {
     let Some(mut war) = war else { return };
     if war.result.is_some() {
         return;
     }
+    // The entry's ground war input (see gw_main): GRSND20 a unit picked,
+    // 21 an order given, 22 not possible, 30 / 31 MOVE / ATTACK.
     if let Ok(button) = buttons.get(activated.0) {
         if war.selected.is_some_and(|(s, _)| s == 0) {
             war.mode = match button {
                 Button::Move => Mode::Move,
                 Button::Attack => Mode::Attack,
             };
+            commands.trigger(Sfx::ground(if war.mode == Mode::Move { 30 } else { 31 }));
+        } else {
+            commands.trigger(Sfx::ground(22));
         }
         return;
     }
@@ -554,16 +615,24 @@ fn battle_click(
     match (war.mode, war.selected) {
         (Mode::Move, Some((0, i))) => {
             war.battle.order_move(i, (c, r));
+            commands.trigger(Sfx::ground(21));
             war.mode = Mode::Select;
         }
         (Mode::Attack, Some((0, i))) => {
             if let Some((1, j)) = war.battle.unit_at(at) {
                 war.battle.order_attack(i, j);
+                commands.trigger(Sfx::ground(21));
+            } else {
+                commands.trigger(Sfx::ground(22));
             }
             war.mode = Mode::Select;
         }
         _ => {
+            let before = war.selected;
             war.selected = war.battle.unit_at(at);
+            if war.selected.is_some() && war.selected != before {
+                commands.trigger(Sfx::ground(20));
+            }
             war.mode = Mode::Select;
         }
     }
@@ -572,10 +641,11 @@ fn battle_click(
 
 /// The other button on a cell: the selected unit moves there, or attacks
 /// what's there.
-fn battle_order(used: On<AlternateUse>, cells: Query<&Cell>, war: Option<ResMut<War>>) {
+fn battle_order(used: On<AlternateUse>, cells: Query<&Cell>, war: Option<ResMut<War>>, mut commands: Commands) {
     let (Ok(&Cell(c, r)), Some(mut war)) = (cells.get(used.0), war) else { return };
     let Some((0, i)) = war.selected else { return };
     let at = (i32::from(c) * 16 + 8, i32::from(r) * 16 + 8);
+    commands.trigger(Sfx::ground(21));
     match war.battle.unit_at(at) {
         Some((1, j)) => war.battle.order_attack(i, j),
         _ => war.battle.order_move(i, (c, r)),
@@ -597,7 +667,10 @@ fn battle_action(
     }
     let (Some(mut war), Some(mut game), Some(data)) = (war, game, data.get(&handle.0)) else { return };
     match action.0 {
-        RETREAT if war.result.is_none() => war.retreated = true,
+        RETREAT if war.result.is_none() => {
+            commands.trigger(Sfx::named("retreat"));
+            war.retreated = true;
+        }
         END_BATTLE if war.result.is_some() => {
             let won = war.battle.won() && !war.retreated;
             let place = war.battle.place;
@@ -609,9 +682,13 @@ fn battle_action(
             }
             match outcome {
                 Outcome::Continue => commands.trigger(GoTo(GameScreen::GalacticMap)),
+                // The end: START.EXE runs VICTORY.PRG, or screen 35 shows your death.
                 end => {
-                    commands.insert_resource(GameEnd(end));
-                    commands.trigger(GoTo(GameScreen::GameEnd));
+                    let hero = game.0.word(0x9276).unwrap_or(1);
+                    let script = if end == Outcome::Won { cutscene::victory() } else { cutscene::death(true, hero) };
+                    commands.insert_resource(Cutscenes { scripts: vec![script], then: GameScreen::MainMenu });
+                    commands.remove_resource::<Game>();
+                    commands.trigger(GoTo(GameScreen::Cutscene));
                 }
             }
         }
@@ -619,31 +696,3 @@ fn battle_action(
     }
 }
 
-/// Screens 35 and 36 (FUN_3abd_17dd / 1a47): GRAFIKA/DEATHSZ1 and your
-/// hero's death, or the victory.
-fn enter_end(mut commands: Commands, end: Option<Res<GameEnd>>, asset_server: Res<AssetServer>) {
-    let path = match end.map(|e| e.0) {
-        Some(Outcome::Won) => "VICTORY/END.PIC",
-        _ => "GRAFIKA/DEATHSZ1.PIC",
-    };
-    commands.spawn((
-        Sprite::from_image(asset_server.load(path)),
-        Anchor::TOP_LEFT,
-        place(Vec2::ZERO, 20.0),
-        DespawnOnExit(GameScreen::GameEnd),
-    ));
-    commands.spawn((
-        HoverLabel(String::new()),
-        hotspot(Rect::new(0.0, 0.0, 320.0, 200.0), Hover::Outline),
-        DefaultFocus,
-        DespawnOnExit(GameScreen::GameEnd),
-    ));
-}
-
-fn end_click(activated: On<Activated>, screen: Res<State<GameScreen>>, mut commands: Commands) {
-    let _ = activated;
-    if *screen.get() == GameScreen::GameEnd {
-        commands.remove_resource::<Game>();
-        commands.trigger(GoTo(GameScreen::MainMenu));
-    }
-}

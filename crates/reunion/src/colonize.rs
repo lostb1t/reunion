@@ -14,6 +14,7 @@ use bevy::prelude::*;
 use bevy::sprite::Anchor;
 use reunion_formats::deploy::COLONY_COST;
 
+use crate::audio::Sfx;
 use crate::focus::{Activated, Hover, hotspot};
 use crate::game::{Game, random};
 use crate::game_data::{GameData, GameDataHandle};
@@ -149,6 +150,7 @@ fn toggle(
     game: Option<Res<Game>>,
     handle: Res<GameDataHandle>,
     data: Res<Assets<GameData>>,
+    mut commands: Commands,
 ) {
     let (Ok(&BuildingBox(k)), Some(mut choice), Some(game), Some(data)) =
         (boxes.get(activated.0), choice, game, data.get(&handle.0))
@@ -162,6 +164,9 @@ fn toggle(
     let Some(setup) = data.exe.setup_buildings().get(k).copied() else { return };
     if game.0.setup_building_available(&data.exe, setup.kind, record[0x15]) {
         choice.0[k] = !choice.0[k];
+        commands.trigger(Sfx::named("x"));
+    } else {
+        commands.trigger(Sfx::named("hiba"));
     }
 }
 
@@ -186,9 +191,11 @@ fn act(
             let (system, planet, moon) = game.selection();
             let Some(body) = game.selected_body(&data.star_systems) else { return };
             let place = (system as u8, planet as u8, moon as u8);
-            // Not enough money: nothing happens (the original beeps).
+            // Not enough money: nothing happens but the error sound.
             if game.0.found_colony(&data.exe, place, body, &choice.0, &mut random) {
                 commands.trigger(GoTo(GameScreen::PlanetMain));
+            } else {
+                commands.trigger(Sfx::named("hiba"));
             }
         }
         _ => {}

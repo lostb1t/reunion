@@ -20,6 +20,7 @@ use bevy::prelude::*;
 use bevy::sprite::Anchor;
 use reunion_formats::state::{UnitList, unit};
 
+use crate::audio::Sfx;
 use crate::focus::{Activated, Hover, hotspot};
 use crate::game::Game;
 use crate::game_data::{GameData, GameDataHandle};
@@ -501,10 +502,12 @@ fn activate(
     let count = game.0.unit_count(list);
     if let Ok(SlotButton(k)) = buttons.get(activated.0) {
         if *k <= count {
+            commands.trigger(Sfx::named("x"));
             select(&mut game, list, *k);
         }
     } else if let Ok(UnitIcon(k)) = icons.get(activated.0) {
         if selected(&game) == *k {
+            commands.trigger(Sfx::named("group"));
             commands.trigger(GoTo(GameScreen::Group));
         } else {
             select(&mut game, list, *k);
@@ -514,6 +517,7 @@ fn activate(
             UnitList::Groups => UnitList::Bases,
             UnitList::Bases => UnitList::Groups,
         };
+        commands.trigger(Sfx::named("change"));
         let remembered = game.0.word(SELECTED_PER_LIST[other as usize]).unwrap_or(0);
         game.0.set_word(LIST, other as u16);
         let count = game.0.unit_count(other) as u16;

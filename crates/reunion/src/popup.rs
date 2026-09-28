@@ -9,6 +9,7 @@ use bevy::prelude::*;
 use bevy::sprite::Anchor;
 use bevy_enhanced_input::prelude::*;
 
+use crate::audio::Sfx;
 use crate::game::Game;
 use crate::hud::YELLOW_TEXT;
 use crate::input::{Back, Click, Confirm};
@@ -117,6 +118,8 @@ fn open(
         ));
         text.insert(place(Vec2::new(x, y + 1.0 + 9.0 * k as f32), Z + 0.2));
     }
+    // FUN_34b0_011a's boxes (nearly all of them) say "attention".
+    commands.trigger(Sfx::named("attentio"));
     commands.insert_resource(PopupOpen { opened: frame.0 });
 }
 

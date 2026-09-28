@@ -10,6 +10,7 @@
 use bevy::prelude::*;
 use reunion_formats::state::{UnitList, unit};
 
+use crate::audio::Sfx;
 use crate::focus::{Activated, DefaultFocus, Hover, hotspot};
 use crate::game::Game;
 use crate::game_data::{GameData, GameDataHandle};
@@ -123,6 +124,9 @@ fn activate(
     mut commands: Commands,
 ) {
     let Some(mut game) = game else { return };
+    if name.contains(activated.0) || kind.contains(activated.0) {
+        commands.trigger(Sfx::named("x"));
+    }
     if name.contains(activated.0) {
         let current = game
             .0
@@ -194,8 +198,12 @@ fn decide(
     }
     let Some(mut game) = game else { return };
     match action.0 {
-        CREATE => commands.trigger(GoTo(GameScreen::Group)),
+        CREATE => {
+            commands.trigger(Sfx::named("okay"));
+            commands.trigger(GoTo(GameScreen::Group));
+        }
         ABORT => {
+            commands.trigger(Sfx::named("hiba"));
             game.0.remove_last_group();
             let count = game.0.unit_count(UnitList::Groups) as u16;
             game.0.set_word(LIST_COUNT, count);

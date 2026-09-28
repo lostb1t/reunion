@@ -3,7 +3,7 @@
 
 use std::path::PathBuf;
 
-use reunion_formats::{exe::GameExe, icons, map::SurfaceMap, pic, state::GameState, text};
+use reunion_formats::{ani, battle_view, exe::GameExe, icons, map::SurfaceMap, module, pic, sound, state::GameState, text};
 
 fn game_file(path: &str) -> Option<Vec<u8>> {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../game");
@@ -379,4 +379,165 @@ fn long_game_runs() {
         events += e.len();
     }
     println!("{events} events, money {}", state.money());
+}
+
+fn files_with_extension(extension: &str) -> Vec<PathBuf> {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../game");
+    let mut files: Vec<PathBuf> = std::fs::read_dir(&root)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter(|e| e.path().is_dir())
+        .flat_map(|dir| std::fs::read_dir(dir.path()).into_iter().flatten().flatten())
+        .map(|e| e.path())
+        .filter(|p| p.extension().is_some_and(|e| e.eq_ignore_ascii_case(extension)))
+        .collect();
+    files.sort();
+    files
+}
+
+#[test]
+fn decodes_every_sound() {
+    let files = files_with_extension("smp");
+    if files.is_empty() {
+        return;
+    }
+    for path in &files {
+        let smp = sound::Smp::parse(&std::fs::read(path).unwrap())
+            .unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+        assert!((4000..=45000).contains(&smp.sample_rate), "{}", path.display());
+    }
+    assert_eq!(files.len(), 154);
+}
+
+#[test]
+fn plays_every_module() {
+    // The cutscenes' .MOD files and the game's ANIM/*.SPD tracks (not the
+    // 7-byte SAVE/SETUP.SPD).
+    let mut files = files_with_extension("mod");
+    files.extend(files_with_extension("spd").into_iter().filter(|p| p.metadata().is_ok_and(|m| m.len() > 2000)));
+    if files.is_empty() {
+        return;
+    }
+    for path in &files {
+        let song = module::Module::parse(&std::fs::read(path).unwrap())
+            .unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+        let mut player = module::Player::new(song, 22050);
+        // Twenty seconds.
+        let mut out = vec![0.0; 2 * 22050 * 20];
+        player.render(&mut out);
+        let peak = out.iter().fold(0.0f32, |m, s| m.max(s.abs()));
+        let rms = (out.iter().map(|s| s * s).sum::<f32>() / out.len() as f32).sqrt();
+        println!("{}: peak {peak:.2} rms {rms:.3}", path.display());
+        assert!(out.iter().all(|s| s.is_finite()));
+        // NO.SPD is the "music off" track: one empty pattern.
+        let quiet = path.file_name().is_some_and(|n| n.eq_ignore_ascii_case("NO.SPD"));
+        assert!(quiet || rms > 0.01, "{} is silent", path.display());
+    }
+    assert_eq!(files.len(), 14 + 13);
+}
+
+#[test]
+fn decodes_every_animation() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../game");
+    let mut files = files_with_extension("ani");
+    for sub in ["WAR/WAR", "WAR/GRWAR"] {
+        files.extend(
+            std::fs::read_dir(root.join(sub))
+                .into_iter()
+                .flatten()
+                .flatten()
+                .map(|e| e.path())
+                .filter(|p| p.extension().is_some_and(|e| e.eq_ignore_ascii_case("ani"))),
+        );
+    }
+    if files.is_empty() {
+        return;
+    }
+    for path in &files {
+        let ani = ani::Ani::parse(&std::fs::read(path).unwrap())
+            .unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+        for k in 1..=ani.chunks.len() {
+            ani.frame(k);
+        }
+    }
+    assert_eq!(files.len(), 98);
+}
+
+#[test]
+fn battle_view_plays_every_clip() {
+    let (Some(exe), Some(def)) = (game_file("GRWAR/REUNION.PRG"), game_file("WAR/ANIM/ANIM.DEF")) else {
+        return;
+    };
+    let exe = GameExe::parse(exe).unwrap();
+    let mut seed = 7u32;
+    let mut random = |n: u16| {
+        seed = seed.wrapping_mul(1_103_515_245).wrapping_add(12345);
+        ((seed >> 16) % u32::from(n.max(1))) as u16
+    };
+    let (mut view, first) = battle_view::BattleView::new(&def, &exe, &mut random);
+    let mut seen = std::collections::HashSet::new();
+    let mut events = first;
+    for _ in 0..200_000 {
+        for event in &events {
+            if let battle_view::ViewEvent::Draw { animation, frame } = *event {
+                let place = exe.clip_placement(animation);
+                assert!((1..=place.frames).contains(&frame), "SA{animation} frame {frame}");
+                assert!(u32::from(place.x) + u32::from(place.width) <= 320);
+                seen.insert(animation);
+            }
+        }
+        events = view.frame(&mut random);
+    }
+    // Clip 1 can only open a battle; the other 24 all come around.
+    assert!(seen.len() >= 24);
+}
+
+#[test]
+fn pilot_raids_a_convoy() {
+    use reunion_formats::{pub_people::PILOT, sim::Texts, story::Event};
+    let (Some(prg), Some(init), Some(messages), Some(kitalal), Some(pirate)) = (
+        game_file("GRWAR/REUNION.PRG"),
+        game_file("SAVE/INIT"),
+        game_file("TEXT/MESSAGE.TXT"),
+        game_file("TEXT/KITALAL.TXT"),
+        game_file("TEXT/PIRATE.TXT"),
+    ) else {
+        return;
+    };
+    let exe = GameExe::parse(prg).unwrap();
+    let texts = Texts::parse(&messages, &kitalal).with_pirate(&pirate);
+    assert!(texts.pirate[10].contains("Lyrae"));
+    let mut state = GameState::new_game(&exe, &init, 1).unwrap();
+    let mut seed = 5u32;
+    let mut random = |n: u16| {
+        seed = seed.wrapping_mul(0x0808_8405).wrapping_add(1);
+        ((u64::from(seed) * u64::from(n)) >> 32) as u16
+    };
+    state.start_offers();
+    let mut hours = 0;
+    let mut announced = 0;
+    while state.current_offer() == 0 && hours < 24 * 400 {
+        state.advance_hour();
+        announced += state
+            .pub_hour(&exe, &texts, &mut random)
+            .iter()
+            .filter(|e| matches!(e, Event::Message(m) if texts.pirate.contains(m)))
+            .count();
+        hours += 1;
+    }
+    let offer = state.current_offer();
+    assert!(offer > 0, "no convoy after {hours} hours");
+    assert!(announced > 0, "its message went to the log");
+    // The pilot turns up in the pub later in the story.
+    state.set_byte(0x11f + 27 * 9 + 0x0f, 2);
+    state.send_person(PILOT, 3, offer as u8 + 10);
+    let mut events = Vec::new();
+    for _ in 0..3 {
+        events.extend(state.pub_hour(&exe, &texts, &mut random));
+    }
+    let offer_after = state.trade_offer(offer);
+    assert_eq!(offer_after.until[0], 0, "the convoy is gone");
+    assert!(events.iter().any(|e| matches!(e, Event::Message(m) if !m.is_empty())));
+    println!("{offer}: {:?} {events:?}", state.trade_offer(offer));
 }

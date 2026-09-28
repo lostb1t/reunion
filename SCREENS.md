@@ -13,16 +13,16 @@ Every screen of the original, from the screen table in `REUNION.PRG`
 | 5 | Info / buy | INFO-BUY | BACK, RESEARCH-DESIGN, BUY ITEM, SELECT, PROJECT UP, PROJECT DOWN | Done: spinning 3D models (software renderer; a few per-model tweaks not copied), picture / description, ore, orders; production runs hourly |
 | 6 | Trade | TRADE | BACK, TRANSFER | |
 | 7 | Galactic map | GALACTIC MAP | BACK (+ ZOOM OUT in the moons view) | Done: orbiting planets / moons, planet info, system buttons, destination select for moving groups; what's in orbit (your groups, alien fleets) with MOVE UNITS, ATTACK, GROUND WAR |
-| 8 | Planet info | PLANET INFO | BACK, GALACTIC MAP, PLANET MAIN (+ INCREASE / DECREASE TAX) | Done, planets and moons, and what ships in orbit can put there: satellites, spy satellites / ships, solar satellites, miner stations, COLONIZATION (hotspots on the pictures missing) |
+| 8 | Planet info | PLANET INFO | BACK, GALACTIC MAP, PLANET MAIN (+ INCREASE / DECREASE TAX) | Done, planets and moons, and what ships in orbit can put there: satellites, spy satellites / ships, solar satellites, miner stations, COLONIZATION; the pictures open the owner's race page (ALIENNFO: portrait, description, weapons when spied on), SHIPS and the surface (NAGY) |
 | 9 | Trade (2) | TRADE | BACK | |
 | 10 | Game credits | GAME CREDITS | BACK | Done |
 | 11 | Messages | MESSAGES | BACK | Done (the simulation's events go in the log) |
-| 12 | Disk operations (save / load) | DISK OPERATIONS | BACK, LOAD, SAVE, GAME CREDITS, EXIT TO DOS | Done: save/load in the original format; save names are the game date (no typing yet); no music |
+| 12 | Disk operations (save / load) | DISK OPERATIONS | BACK, LOAD, SAVE, GAME CREDITS, EXIT TO DOS | Done: save/load in the original format; save names are the game date (no typing yet); the music buttons (MAIN1, MAIN2, off, speech on/off) |
 | 13 | Transfer | TRANSFER | BACK, SHIP INFO, CONTROL PANEL, GROUP | Done (ore and goods, room, storage, spaceport) |
 | 14 | Info / buy (selecting) | internal | BACK, RESEARCH-DESIGN, BUY ITEM, SELECT OFF, PROJECT UP, PROJECT DOWN | Done (part of INFO-BUY) |
 | 15 | Buy amount | internal | ADD TEN, ADD ONE, MINUS ONE, MINUS TEN, OK BUY, CANCEL BUY | Done (part of INFO-BUY) |
 | 16 | Ship info | SHIP INFO | BACK (+ CONTROL PANEL, GROUP, NEW UNIT, TRANSFER, PLANET MAIN) | Done: groups / bases, details, NEW UNIT |
-| 17 | Control panel | CONTROL PANEL | BACK, SHIP INFO, GROUP | Done: launch / dock, move; cockpit animations and docking story events missing |
+| 17 | Control panel | CONTROL PANEL | BACK, SHIP INFO, GROUP | Done: launch / dock, move, the cockpit's lights, screens and starfield (MUSZIANM), and the finds when landing at Jade, (3, 2, 1) and (7, 1, 0) |
 | 18 | Ship moving | internal | ABORT MOVE | Done (destination picking on the galactic map; travel over time) |
 | 19 | Ground war set-up | internal | OK, ATTACK, CANCEL ATTACK, ADD ... UNIT | Done: the units, removing / resizing, adding from what's left |
 | 20 | Planet main (surface) | PLANET MAIN | BACK, GALACTIC MAP, PLANET INFO, SPACEPORT | Done: buildings (scaffolding while built), building / demolishing, building info, the colony model, the radar map; buildings of a colony being set up find their place here |
@@ -30,16 +30,16 @@ Every screen of the original, from the screen table in `REUNION.PRG`
 | 22 | Group | GROUP | BACK, SHIP INFO (+ CONTROL PANEL, TRANSFER, GALACTIC MAP, PLANET MAIN, DISBAND UNIT) | Done: loading ships, troops and equipment from stock |
 | 23 | Space local (the space station's pub) | SPACE LOCAL | BACK | Done: the people there (KOCSMA, PIRATES) |
 | 24 | internal | internal | BACK | Staff talk (DUMA): done |
-| 25 | Talking in the pub | internal | END TALK | Done: talks (KERDES/VALASZ .LOC), where they start, what lines do; the people's missions (hired spies, expeditions) not yet |
+| 25 | Talking in the pub | internal | END TALK | Done: talks (KERDES/VALASZ .LOC), where they start, what lines do; the people's missions (the Stranger, the Eran, the bounty hunter, the pilot's convoy raids from TEXT/PIRATE.TXT) |
 | 26-27 | internal | internal | - | |
 | 28 | Colonization | internal | OK BUILD IT, ABORT | Done: the six starting buildings, cost, founding the colony and its base |
-| 29 | Space battle | internal | RETREAT | Done: the battle (ships, paths, fire, explosions), retreat, the aftermath; commander face animations on the right missing |
+| 29 | Space battle | internal | RETREAT | Done: the battle (ships, paths, fire, explosions), retreat, the aftermath, and the battle footage on the right (WAR/ANIM/ANIM.DEF clips of WAR/WAR/SA<n>.ANI with SOUND2/WARSND sounds) |
 | 30 | Battle end | internal | END BATTLE | Done (victory / defeat with losses, part of 29) |
 | 31 | internal | internal | - | |
-| 32 | Ground war | internal | RETREAT | Done: the battle (moving, attacking, rockets, explosions), result, the aftermath (conquest, capitals, losing New Earth, winning); the colony's own guns and some sounds not yet |
-| 33 | Story picture | internal | BACK | Done (PICS/PIC<n>; no music) |
+| 32 | Ground war | internal | RETREAT | Done: the battle (moving, attacking, rockets, explosions), result, the aftermath (conquest, capitals, losing New Earth, winning), its sounds (SOUND3/GRSND) and the panel's animation of a unit kind in the battle (WAR/GRWAR/GRANIM<n>) |
+| 33 | Story picture | internal | BACK | Done (PICS/PIC<n>; pictures 1, 2, 9 and 10 move: ANIM/MAIN<n> with their sounds) |
 | 34 | Talking with aliens | internal | - | Done: the conversations and what they change |
-| 35-36 | Game over / victory | internal | - | Done (GRAFIKA/DEATHSZ1, VICTORY/END; the death animation and the victory program not yet) |
+| 35-36 | Game over / victory | internal | - | Done: your death (DEATHSZ, DEATH<hero>, DEATH, ANIM/MAIN15-16) or VICTORY.PRG's sequence and credits (see `cutscene.rs`) |
 | 37 | Main computer | MAIN COMPUTER | BACK, YOUR PLANETS, USEFUL PLANETS, ALIEN PLANETS | Done (scroll bar not drawn; scroll with the right stick) |
 | 38 | Start-up load | internal | LOAD, EXIT TO DOS | Done |
 
@@ -47,7 +47,9 @@ Each screen's background is in the same table: `grafika\<name>` from the
 25-byte record's first field (e.g. 8 `bolygo`, 11 `uzenet`, 37 `colinfo`).
 
 Also outside the screen table: main menu, choose hero and hero portrait (done),
-intro and credits animations, pub talks (`TEXT/KERDES*`, `VALASZ*`).
+pub talks (`TEXT/KERDES*`, `VALASZ*`), and START.EXE's other programs: the company
+credits (CREDITS.PRG) and the intro (INTRO.PRG) before the game, the victory
+sequence (VICTORY.PRG) after it, all in `cutscene.rs` with their music.
 
 Also done: message boxes (FUN_34b0_0237, queued while one is up; they stop
 the clock), groups travelling hour by hour (arrival messages, exploring
@@ -62,5 +64,8 @@ aftermath. The story's timeline (reunion-formats/src/story.rs): the
 Jaanosians' calls and fall, the Morgrul invasions, the Kalls, the Antares
 supernova, the League's and the Earthlings' attacks, with the story
 pictures and conversations they bring. The pub people's missions (the
-Stranger's spying, the Eran, the bounty hunter). Not yet: the pub pilot's
-trade flights, sound and music.
+Stranger's spying, the Eran, the bounty hunter, the pilot's convoy raids).
+Sound: the original's effects and speech (SOUND*/…SMP) where it plays them,
+its music (ProTracker modules: the cutscenes' .MOD and the game's
+ANIM/*.SPD, with the disk screen's music buttons), the main room's window
+animation and the ground war's panel animation (WAR/GRWAR/GRANIM<n>).

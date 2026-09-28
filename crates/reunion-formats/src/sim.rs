@@ -33,6 +33,9 @@ use crate::text::decrypt_lines;
 pub struct Texts {
     pub messages: Vec<String>,
     pub inventions: Vec<String>,
+    /// TEXT/PIRATE.TXT: the convoys' intercepted messages (1-10) and the
+    /// pilot's pitches (11-20).
+    pub pirate: Vec<String>,
 }
 
 impl Texts {
@@ -46,7 +49,16 @@ impl Texts {
         Self {
             messages: lines(message_txt),
             inventions: lines(kitalal_txt),
+            pirate: Vec::new(),
         }
+    }
+
+    pub fn with_pirate(mut self, pirate_txt: &[u8]) -> Self {
+        self.pirate = decrypt_lines(pirate_txt)
+            .into_iter()
+            .map(|l| l.into_iter().map(char::from).collect())
+            .collect();
+        self
     }
 
     fn message(&self, n: usize) -> String {

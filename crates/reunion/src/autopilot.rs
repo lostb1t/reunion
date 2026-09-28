@@ -25,8 +25,13 @@
 //!   that race
 //! - `army <system> <planet> <moon> <n>` - a new army group in orbit there
 //!   with n hunters and lasers
+//! - `battle <system> <planet> <moon> <race>` - a space battle there,
+//!   against that race
 //! - `talk <n>` / `scene <n>` - start a conversation with aliens / show a
 //!   story picture, as the story does
+//! - `cutscene <credits|intro|victory|death>` - play one of the original's
+//!   cutscene programs
+//! - `upscale <n>` - switch to upscaling mode n (see `UpscaleMode::ALL`)
 //! - `wait <seconds>`
 //! - `shot <name>` - saves `<dir>/<name>.png`
 //!
@@ -50,6 +55,7 @@ use crate::input::{Back, Confirm, Navigate, Scroll};
 use crate::screen::GameScreen;
 use crate::text::TextEditing;
 use crate::transition::GoTo;
+use crate::upscale::UpscaleMode;
 
 pub struct AutopilotPlugin;
 
@@ -93,7 +99,7 @@ const SIZE: UVec2 = UVec2::new(1280, 800);
 
 fn render_to_image(
     mut commands: Commands,
-    camera: Single<Entity, With<Camera2d>>,
+    camera: Single<Entity, With<crate::upscale::DisplayCamera>>,
     mut images: ResMut<Assets<Image>>,
     mut pilot: ResMut<Autopilot>,
 ) {
@@ -253,6 +259,16 @@ fn run(
                 }
             }
         }
+        "battle" => {
+            let v: Vec<u8> = arg.split_whitespace().filter_map(|n| n.parse().ok()).collect();
+            if let [s, p, m, race, ..] = v.as_slice() {
+                if let Some(game) = game.as_mut() {
+                    game.0.set_standing(*race, reunion_formats::aliens::AT_WAR);
+                }
+                commands.insert_resource(crate::space_battle::BattleStart { place: (*s, *p, *m), you_attack: true, ground: false });
+                commands.trigger(GoTo(GameScreen::SpaceBattle));
+            }
+        }
         "ground" => {
             let v: Vec<u8> = arg.split_whitespace().filter_map(|n| n.parse().ok()).collect();
             if let [s, p, m, race, ..] = v.as_slice() {
@@ -308,6 +324,28 @@ fn run(
             if let Some(game) = game.as_mut() {
                 game.0
                     .add_message(if command == "alert" { 1 } else { 0 }, arg);
+            }
+        }
+        "cutscene" => {
+            let script = match arg {
+                "credits" => Some(crate::cutscene::company_credits()),
+                "intro" => Some(crate::cutscene::intro()),
+                "victory" => Some(crate::cutscene::victory()),
+                "death" => Some(crate::cutscene::death(true, 2)),
+                _ => None,
+            };
+            match script {
+                Some(script) => {
+                    commands.insert_resource(crate::cutscene::Cutscenes { scripts: vec![script], then: GameScreen::MainMenu });
+                    commands.trigger(GoTo(GameScreen::Cutscene));
+                }
+                None => error!("autopilot: unknown cutscene {arg}"),
+            }
+        }
+        "upscale" => {
+            match arg.parse::<usize>().ok().and_then(|n| UpscaleMode::ALL.get(n)) {
+                Some(&mode) => commands.insert_resource(mode),
+                None => error!("autopilot: upscale needs a mode 0-{}", UpscaleMode::ALL.len() - 1),
             }
         }
         "wait" => pilot.wait = arg.parse().unwrap_or(1.0),

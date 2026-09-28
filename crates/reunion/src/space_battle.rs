@@ -8,6 +8,9 @@
 //! fighter's head (WAR/SPFACE<hired fighter>, at (42, 144)). The icon bar
 //! has RETREAT.
 //!
+//! The right half shows clips of battle footage while the fight goes on
+//! ([`reunion_formats::battle_view`]), with their sounds.
+//!
 //! When it's over (FUN_20d4_1de8): WAR/SPVICT or WAR/SPLOST with the losses
 //! of both sides (hunters, fighters, destroyers, cruisers; at (87, 88 + 9k)
 //! and (87, 143 + 9k)), and END BATTLE, after which the losers leave and the
@@ -16,11 +19,13 @@
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 use reunion_formats::battle::{EXPLOSION_FRAMES, HEIGHT, SpaceBattle, WIDTH};
+use reunion_formats::battle_view::{BattleView, CLIPS, PANEL, ViewEvent};
 
+use crate::audio::Sfx;
 use crate::game::{Game, random};
 use crate::game_data::{GameData, GameDataHandle};
 use crate::hud::{ActionUsed, CONTENT_Y, IconSetOverride, YELLOW_TEXT};
-use crate::pic::{MASKED, rgba_image};
+use crate::pic::{Animation, MASKED, PALETTE, Palette, rgba_image};
 use crate::screen::{GameScreen, place};
 use crate::text::{Label, label};
 use crate::transition::GoTo;
@@ -71,7 +76,18 @@ struct Fight {
     stars: Handle<Image>,
     sprites: Handle<Image>,
     changed: bool,
+    view: BattleView,
+    /// The right half, over SPWAR: see-through until something is drawn.
+    panel: Handle<Image>,
+    /// WAR/WAR/SA1-25.
+    clips: Vec<Handle<Animation>>,
+    palette: Handle<Palette>,
+    /// A clip frame whose animation hadn't loaded yet.
+    pending: Option<ViewEvent>,
 }
+
+const PANEL_WIDTH: u32 = (PANEL.1 - PANEL.0 + 1) as u32;
+const PANEL_HEIGHT: u32 = (PANEL.3 - PANEL.2 + 1) as u32;
 
 /// SPWAR, keyed once loaded.
 #[derive(Component)]
@@ -113,6 +129,14 @@ fn enter(
         Visibility::Hidden,
         scoped.clone(),
     ));
+    let panel = images.add(rgba_image(PANEL_WIDTH, PANEL_HEIGHT, vec![0; (PANEL_WIDTH * PANEL_HEIGHT * 4) as usize]));
+    commands.spawn((
+        Sprite::from_image(panel.clone()),
+        Anchor::TOP_LEFT,
+        place(Vec2::new(PANEL.0 as f32, PANEL.2 as f32), 0.55),
+        scoped.clone(),
+    ));
+    let (view, first) = BattleView::new(&data.battle_clips, &data.exe, &mut random);
     let fighter = game.0.word(0x95ba).unwrap_or(0).min(3);
     commands.spawn((
         Sprite::from_image(asset_server.load(format!("WAR/SPFACE{fighter}.PIC#{MASKED}"))),
@@ -130,6 +154,11 @@ fn enter(
         stars: asset_server.load("WAR/SPHATTER.PIC"),
         sprites: asset_server.load("WAR/SPANTS.PIC"),
         changed: true,
+        view,
+        panel,
+        clips: (1..=CLIPS).map(|n| asset_server.load(format!("WAR/WAR/SA{n}.ANI"))).collect(),
+        palette: asset_server.load(format!("WAR/SPWAR.PIC#{PALETTE}")),
+        pending: first.iter().copied().find(|e| matches!(e, ViewEvent::Draw { .. })),
     });
     commands.remove_resource::<BattleStart>();
 }
@@ -153,6 +182,54 @@ fn key_screen(mut frames: Query<(&Frame, &mut Sprite, &mut Visibility)>, mut ima
     }
 }
 
+/// Draws the footage panel's changes and plays their sounds.
+fn show(
+    fight: &mut Fight,
+    data: &GameData,
+    events: &[ViewEvent],
+    images: &mut Assets<Image>,
+    animations: &Assets<Animation>,
+    palettes: &Assets<Palette>,
+    commands: &mut Commands,
+) {
+    let palette = palettes.get(&fight.palette);
+    for &event in events {
+        let (x0, y0, width, height, pixels) = match event {
+            ViewEvent::Sound(n) => {
+                commands.trigger(Sfx::war(n));
+                continue;
+            }
+            ViewEvent::Fill(x, y, w, h) => (x, y, w, h, None),
+            ViewEvent::Draw { animation, frame } => {
+                let animation_data = fight.clips.get(usize::from(animation).wrapping_sub(1)).and_then(|h| animations.get(h));
+                let (Some(ani), Some(_)) = (animation_data, palette) else {
+                    fight.pending = Some(event);
+                    continue;
+                };
+                let place = data.exe.clip_placement(animation);
+                let (width, height) = (i32::from(ani.0.width()), i32::from(ani.0.height()));
+                (i32::from(place.x), i32::from(place.y), width, height, Some(ani.0.frame(usize::from(frame))))
+            }
+        };
+        let Some(mut image) = images.get_mut(&fight.panel) else { continue };
+        let Some(buffer) = image.data.as_mut() else { continue };
+        for row in 0..height {
+            for column in 0..width {
+                let (x, y) = (x0 + column - PANEL.0, y0 + row - PANEL.2);
+                if !(0..PANEL_WIDTH as i32).contains(&x) || !(0..PANEL_HEIGHT as i32).contains(&y) {
+                    continue;
+                }
+                let rgb = match (&pixels, palette) {
+                    (Some(p), Some(palette)) => palette.0[usize::from(p[(row * width + column) as usize])],
+                    _ => [0, 0, 0],
+                };
+                let at = ((y as u32 * PANEL_WIDTH + x as u32) * 4) as usize;
+                buffer[at..at + 4].copy_from_slice(&[rgb[0], rgb[1], rgb[2], 255]);
+            }
+        }
+    }
+}
+
 /// Runs the battle at the original's frame rate; when it's over, the
 /// survivors go home and the result shows.
 fn fight(
@@ -163,6 +240,9 @@ fn fight(
     data: Res<Assets<GameData>>,
     asset_server: Res<AssetServer>,
     mut set: ResMut<IconSetOverride>,
+    mut images: ResMut<Assets<Image>>,
+    animations: Res<Assets<Animation>>,
+    palettes: Res<Assets<Palette>>,
     mut commands: Commands,
 ) {
     let (Some(mut fight), Some(mut game), Some(data)) = (fight, game, data.get(&handle.0)) else {
@@ -171,6 +251,9 @@ fn fight(
     if fight.result.is_some() {
         return;
     }
+    if let Some(pending) = fight.pending.take() {
+        show(&mut fight, data, &[pending], &mut images, &animations, &palettes, &mut commands);
+    }
     fight.frames += time.delta_secs_f64() * VGA_REFRESH_HZ;
     while fight.frames >= 1.0 && !fight.battle.over {
         fight.frames -= 1.0;
@@ -178,12 +261,17 @@ fn fight(
         if fight.battle.frame(cheat, &mut random) {
             fight.changed = true;
         }
+        let events = fight.view.frame(&mut random);
+        show(&mut fight, data, &events, &mut images, &animations, &palettes, &mut commands);
     }
     if !fight.battle.over && !fight.retreated {
         return;
     }
     let losses = fight.battle.finish(&mut game.0, &data.exe);
     fight.result = Some(losses);
+    if !fight.retreated {
+        commands.trigger(Sfx::named("endbattl"));
+    }
     set.0 = Some(BATTLE_OVER_SET);
     // FUN_20d4_1de8: the result, over the battle.
     let won = fight.battle.won() && !fight.retreated;
@@ -272,7 +360,10 @@ fn act(
         return;
     };
     match action.0 {
-        RETREAT if fight.result.is_none() => fight.retreated = true,
+        RETREAT if fight.result.is_none() => {
+            commands.trigger(Sfx::named("retreat"));
+            fight.retreated = true;
+        }
         END_BATTLE if fight.result.is_some() => {
             let won = fight.battle.won() && !fight.retreated;
             let place = fight.start.place;

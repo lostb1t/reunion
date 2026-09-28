@@ -36,6 +36,7 @@ use reunion_formats::colony::{
 };
 use reunion_formats::map::{TILE_SIZE, TILES_PER_ROW};
 
+use crate::audio::Sfx;
 use crate::focus::{Activated, Hover, hotspot};
 use crate::game::{Game, random};
 use crate::game_data::{GameData, GameDataHandle, PlanetMap, SharedPictures};
@@ -803,6 +804,7 @@ fn activate(
         return;
     }
     let Ok(&button) = buttons.get(activated.0) else { return };
+    commands.trigger(Sfx::named("x"));
     let say = |commands: &mut Commands, text: &str| commands.trigger(ShowMessage::new(text));
     match button {
         Button::Left => scroll_by(&mut surface, &maps, IVec2::NEG_X),
@@ -889,9 +891,11 @@ fn click_map(
             let b = game.0.buildings()[n - 1].to_vec();
             // A finished mine opens RESOURCE-MINE.
             if surface.own && matches!(b[0], MINE | MINER_STATION) && b[building::CONSTRUCTION] == 0 {
+                commands.trigger(Sfx::named("mine"));
                 commands.trigger(GoTo(GameScreen::ResourceMine));
                 return;
             }
+            commands.trigger(Sfx::named("x"));
             surface.mode = Mode::BuildingInfo(n);
         }
         Mode::Build => {
@@ -899,6 +903,7 @@ fn click_map(
                 return;
             };
             if !fits(surface, map, &kind, cell) {
+                commands.trigger(Sfx::named("hiba"));
                 surface.mode = Mode::Look;
                 return;
             }
@@ -907,6 +912,7 @@ fn click_map(
             else {
                 return;
             };
+            commands.trigger(Sfx::named("build"));
             let money = game.0.money() - kind.cost;
             game.0.set_word(0x95be, money as u16);
             game.0.set_word(0x95c0, (money >> 16) as u16);
@@ -927,6 +933,7 @@ fn click_map(
             if b[0] == COMMAND_CENTRE || b[building::CONSTRUCTION] != 0 || game.0.money() < DEMOLISH_COST {
                 return;
             }
+            commands.trigger(Sfx::named("destruct"));
             game.0.remove_building(n);
             let money = game.0.money() - DEMOLISH_COST;
             game.0.set_word(0x95be, money as u16);

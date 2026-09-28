@@ -16,6 +16,7 @@
 
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
+use reunion_formats::pub_people::PILOT;
 
 use crate::focus::{Activated, DefaultFocus, Hover, hotspot};
 use crate::game::{Game, random};
@@ -277,6 +278,15 @@ fn spawn_text(
         (2, 7, Some(game)) => stranger_targets(game, true),
         _ => choices(data, talk.person, talk.state),
     };
+    // FUN_1fd2_0788: the pilot pitches the convoy of the moment instead.
+    let pitch = match (talk.person, talk.state, game.as_ref()) {
+        (9, 4, Some(game)) => {
+            let k = usize::from(game.0.current_offer()) + 10;
+            data.sim_texts.pirate.get(k - 1).cloned()
+        }
+        _ => None,
+    };
+    let lines = if pitch.is_some() { lines.into_iter().take(1).collect() } else { lines };
     let text = |commands: &mut Commands, s: &str, colors, row: usize| {
         let at = Vec2::new(6.0, TEXT_TOP + 9.0 * row as f32);
         commands.spawn((label(Label::new(s, COLUMNS, colors), at), scoped.clone()));
@@ -298,7 +308,10 @@ fn spawn_text(
         }
         None => {
             for (k, q) in lines.into_iter().enumerate() {
-                let (_, lines) = split(&line(&questions, q));
+                let (_, lines) = match &pitch {
+                    Some(p) => (0, p.split('|').map(|l| l.trim_end().to_string()).collect()),
+                    None => split(&line(&questions, q)),
+                };
                 let top = row;
                 for l in &lines {
                     if row >= 7 {
@@ -371,6 +384,31 @@ fn consequences(game: &mut Game, n: u8, q: u8) -> Option<u8> {
             game.0.send_person(7, random(100) + 100, 2);
         }
         (7, 5) => set(game, 0x7745, 1),
+        // The pilot: asking about work starts the convoys' clocks; then a
+        // free trip (twice the cargo), or a better ship for 10,000, 50,000
+        // or 100,000 if the convoy needs no more than that.
+        (9, 2) => {
+            set(game, 0x7746, 1);
+            game.0.start_offers();
+        }
+        (9, 5) => {
+            reply = Some(6);
+            let offer = game.0.current_offer() as u8;
+            game.0.send_person(PILOT, random(100) + 100, offer + 10);
+        }
+        (9, 6..=8) => {
+            let offer = game.0.current_offer();
+            let (level, price) = match q {
+                6 => (2, 10_000),
+                7 => (3, 50_000),
+                _ => (4, 100_000),
+            };
+            if game.0.trade_offer(offer).level < level {
+                reply = Some(6);
+                add_money(game, -price);
+                game.0.send_person(PILOT, random(100) + 100, offer as u8);
+            }
+        }
         (10, 3) => add_money(game, -100_000),
         (10, 4) => add_money(game, -150_000),
         (10, 5) => add_money(game, -200_000),

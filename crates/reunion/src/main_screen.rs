@@ -14,10 +14,12 @@
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
+use crate::anim_player::{AnimPlayer, Delay, Segment, anim_player};
+use crate::audio::ClickSound;
 use crate::focus::{Activated, Hover, hotspot};
 use crate::game::Game;
 use crate::game_data::{GameData, GameDataHandle};
-use crate::pic::MASKED;
+use crate::pic::{MASKED, PALETTE};
 use crate::staff_talk::TalkTo;
 use crate::transition::GoTo;
 use crate::hud::{ActionByLabel, CONTENT_Y, HoverLabel};
@@ -30,7 +32,7 @@ impl Plugin for MainScreenPlugin {
         app.add_systems(OnEnter(GameScreen::MainScreen), spawn_room)
             .add_systems(
                 Update,
-                spawn_room_hotspots.run_if(in_state(GameScreen::MainScreen)),
+                (spawn_room_hotspots, window_view).run_if(in_state(GameScreen::MainScreen)),
             )
             .add_observer(talk);
     }
@@ -69,8 +71,56 @@ fn spawn_room(mut commands: Commands, asset_server: Res<AssetServer>) {
         Sprite::from_image(asset_server.load("art://widescreen/GRAFIKA/MAIN.right.png")),
         Anchor::TOP_LEFT,
         place(Vec2::new(GAME_WIDTH, CONTENT_Y), 0.0),
+        scoped.clone(),
+    ));
+    // The round window: ships flying past outside (ANIM/MAIN1-6 at (83, 49)).
+    commands.spawn((
+        WindowView { wait: 0.0 },
+        anim_player(
+            AnimPlayer::new(Vec::new(), asset_server.load(format!("GRAFIKA/MAIN.PIC#{PALETTE}"))).with_crop(Rect::new(1.0, 1.0, 43.0, 65.0)),
+            Vec2::new(84.0, CONTENT_Y + 1.0),
+            0.2,
+        ),
         scoped,
     ));
+}
+
+/// Seconds until the window's next animation.
+#[derive(Component)]
+struct WindowView {
+    wait: f32,
+}
+
+/// The original's main loop steps (FUN_3abd_0c70 runs once a step).
+const ROOM_STEP: f32 = 1.0 / 18.2;
+
+/// FUN_3abd_0c70: one of the six animations a frame a step, then a pause of
+/// 100-299 steps before the next.
+fn window_view(
+    time: Res<Time>,
+    asset_server: Res<AssetServer>,
+    mut views: Query<(&mut WindowView, &mut AnimPlayer)>,
+) {
+    for (mut view, mut player) in &mut views {
+        if !player.segments.is_empty() {
+            continue;
+        }
+        view.wait -= time.delta_secs();
+        if view.wait > 0.0 {
+            continue;
+        }
+        let n = crate::game::random(6) + 1;
+        player.segments.push_back(Segment {
+            animation: asset_server.load(format!("ANIM/MAIN{n}.ANI")),
+            from: 2,
+            to: usize::MAX,
+            delay: Delay::Fixed(4),
+            sounds: Vec::new(),
+            end_sound: None,
+            looping: false,
+        });
+        view.wait = f32::from(crate::game::random(200) + 100) * ROOM_STEP;
+    }
 }
 
 /// Room hotspots need the tables from the game data, which may still be loading.
@@ -90,7 +140,11 @@ fn spawn_room_hotspots(
     };
     let scoped = DespawnOnExit(GameScreen::MainScreen);
     commands.spawn((RoomHotspotsSpawned, scoped.clone()));
-    for room in &data.main_room {
+    // FUN_3abd_005c: each part of the room has its sound (a door, a console...).
+    const ROOM_SOUNDS: [&str; 8] = [
+        "research", "messages", "door1", "door2", "starmap", "local", "door3", "surface",
+    ];
+    for (room, sound) in data.main_room.iter().zip(ROOM_SOUNDS) {
         let rect = Rect::new(
             room.x as f32,
             room.y as f32,
@@ -99,6 +153,7 @@ fn spawn_room_hotspots(
         );
         commands.spawn((
             ActionByLabel,
+            ClickSound(sound),
             HoverLabel(room.label.clone()),
             hotspot(rect, Hover::Spotlight { within: ROOM_AREA }),
             scoped.clone(),
@@ -152,6 +207,7 @@ fn spawn_room_hotspots(
             .unwrap_or_default();
         commands.spawn((
             Person(p),
+            ClickSound(["pilots", "builders", "fighters", "develope"][usize::from(p.clamp(1, 4)) - 1]),
             HoverLabel(name),
             hotspot(
                 Rect::from_corners(at - 1.0, at + size + 1.0),

@@ -6,6 +6,7 @@ use bevy::prelude::*;
 
 use reunion_formats::state::{TravelEvent, UnitList};
 
+use crate::audio::Sfx;
 use crate::game::Game;
 use crate::game_data::{GameData, GameDataHandle};
 use crate::game::random;
@@ -80,7 +81,7 @@ pub fn pass_hour(game: &mut Game, data: &GameData, commands: &mut Commands) -> b
         }
     }
     // FUN_1b8a_006e: the people of the pub.
-    for event in game.0.pub_hour(&data.exe, &data.sim_texts) {
+    for event in game.0.pub_hour(&data.exe, &data.sim_texts, &mut random) {
         commands.trigger(Tell(event));
         shown = true;
     }
@@ -115,6 +116,8 @@ fn report(game: &mut Game, data: &GameData, events: &[TravelEvent], commands: &m
                 }
                 let text = format!("{} arrived to {star} {place}", unit_name(&group));
                 game.0.add_message(2, &text);
+                // FUN_34b0_0001 logs it with the "message" sound.
+                commands.trigger(Sfx::named("message"));
             }
             TravelEvent::Explored(_, system) => {
                 let star = star_name(data, system);

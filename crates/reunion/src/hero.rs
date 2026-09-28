@@ -3,10 +3,14 @@
 //! Original: REUNION.PRG FUN_321d_000d. Any click chooses; x < 160 picks hero 2,
 //! otherwise hero 1. The id is stored at DS:0x9276 and the game then shows
 //! "grafika\hero" + id, so the left half is HERO2 and the right half HERO1.
+//!
+//! Choosing plays SOUND/SELECT1 while the screen fades; the hero's picture
+//! comes with SELECT2, and when that ends SELECT3 plays and the game starts.
 
 use bevy::prelude::*;
 use bevy_enhanced_input::prelude::*;
 
+use crate::audio::{Sfx, SfxVoices, sfx_playing};
 use crate::focus::{Activated, DefaultFocus, Hover, hotspot};
 use crate::input::{Back, Click, Confirm};
 use crate::screen::{GAME_HEIGHT, GAME_WIDTH, GameScreen, picture};
@@ -18,6 +22,7 @@ impl Plugin for HeroPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(OnEnter(GameScreen::ChooseHero), spawn_choose_hero)
             .add_systems(OnEnter(GameScreen::HeroIntro), spawn_hero_intro)
+            .add_systems(Update, narrate.run_if(in_state(GameScreen::HeroIntro)))
             .add_observer(on_activated)
             .add_observer(on_back)
             .add_observer(continue_on::<Confirm>)
@@ -86,7 +91,43 @@ fn on_activated(activated: On<Activated>, choices: Query<&HeroChoice>, mut comma
         return;
     };
     commands.insert_resource(Hero(id));
+    commands.insert_resource(Narration { step: 1, timer: Timer::from_seconds(NARRATION_MAX, TimerMode::Once) });
+    commands.trigger(Sfx::named("select1"));
     commands.trigger(GoTo(GameScreen::HeroIntro));
+}
+
+/// Longest wait for a narration sample, in case it can't play.
+const NARRATION_MAX: f32 = 8.0;
+
+/// Which SELECT sample is playing.
+#[derive(Resource)]
+struct Narration {
+    step: u8,
+    timer: Timer,
+}
+
+/// FUN_321d_000d: each sample starts when the one before has ended.
+fn narrate(
+    time: Res<Time>,
+    narration: Option<ResMut<Narration>>,
+    voices: SfxVoices,
+    mut commands: Commands,
+) {
+    let Some(mut narration) = narration else { return };
+    let timed_out = narration.timer.tick(time.delta()).is_finished();
+    if sfx_playing(&voices) && !timed_out {
+        return;
+    }
+    narration.step += 1;
+    narration.timer.reset();
+    match narration.step {
+        2 => commands.trigger(Sfx::named("select2")),
+        _ => {
+            commands.trigger(Sfx::named("select3"));
+            commands.remove_resource::<Narration>();
+            commands.trigger(GoTo(GameScreen::MainScreen));
+        }
+    }
 }
 
 fn on_back(
@@ -129,8 +170,8 @@ fn on_back(
         | GameScreen::StoryScene
         | GameScreen::GroundSetup
         | GameScreen::GroundWar
-        | GameScreen::GameEnd
-        | GameScreen::AlienTalk => return,
+        | GameScreen::AlienTalk
+        | GameScreen::Cutscene => return,
     };
     commands.trigger(GoTo(previous));
 }
@@ -142,6 +183,7 @@ fn continue_on<A: InputAction>(
     mut commands: Commands,
 ) {
     if *screen.get() == GameScreen::HeroIntro {
+        commands.remove_resource::<Narration>();
         commands.trigger(GoTo(GameScreen::MainScreen));
     }
 }

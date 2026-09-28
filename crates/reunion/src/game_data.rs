@@ -35,6 +35,9 @@ const ACTIONS: u8 = 78;
 pub struct GameData {
     /// Hover label per action id (index 0 is unused).
     pub labels: Vec<String>,
+    /// The sound an icon makes per action id, with speech on (DS:0x4e56,
+    /// 9 bytes each: `SOUND/<name>.SMP`, "x" is a click).
+    pub action_voices: Vec<String>,
     /// Icon per action id, if it has one.
     pub action_icons: Vec<Option<Handle<Image>>>,
     /// Action ids shown in each icon bar set.
@@ -46,6 +49,11 @@ pub struct GameData {
     pub terrain_for_type: Vec<u16>,
     /// Per terrain number (1-11).
     pub terrains: Vec<Terrain>,
+    /// Each race's twelve lines on PLANET INFO's owner page (TEXT/SZ_FAJ.RAW:
+    /// Pascal strings of 36 bytes), race n at index n - 1.
+    pub race_texts: Vec<[String; 12]>,
+    /// The space battle's clips (WAR/ANIM/ANIM.DEF, see `battle_view`).
+    pub battle_clips: Vec<u8>,
     /// Commander candidates' four text lines (TEXT/SZ_FACE.RAW), 3 per category.
     pub commanders: Vec<[String; 4]>,
     /// Salaries, levels and skills for hiring commanders.
@@ -211,9 +219,12 @@ impl AssetLoader for GameDataLoader {
         let icon_all = read("ICON/ICON.ALL").await?;
         let init = read("SAVE/INIT").await?;
         let faces = read("TEXT/SZ_FACE.RAW").await?;
+        let battle_clips = read("WAR/ANIM/ANIM.DEF").await?;
+        let races = read("TEXT/SZ_FAJ.RAW").await?;
         let descriptions = read("TEXT/SZ_TALAL.RAW").await?;
         let sim_texts =
-            reunion_formats::sim::Texts::parse(&read("TEXT/MESSAGE.TXT").await?, &read("TEXT/KITALAL.TXT").await?);
+            reunion_formats::sim::Texts::parse(&read("TEXT/MESSAGE.TXT").await?, &read("TEXT/KITALAL.TXT").await?)
+                .with_pirate(&read("TEXT/PIRATE.TXT").await?);
         let mut text_lines = async |path: &'static str| -> Result<Vec<String>, GameDataError> {
             Ok(reunion_formats::text::decrypt_lines(&read(path).await?)
                 .into_iter()
@@ -321,6 +332,9 @@ impl AssetLoader for GameDataLoader {
             satellites,
             short_star_names,
             labels,
+            action_voices: (0..ACTIONS)
+                .map(|a| exe.ds_string(0x4e56 + 9 * u16::from(a)).unwrap_or_default())
+                .collect(),
             action_icons,
             // One icon bar set per screen, indexed by screen number.
             icon_sets: (0..=SCREENS)
@@ -329,6 +343,17 @@ impl AssetLoader for GameDataLoader {
             main_room: exe.main_room()?,
             star_systems: exe.star_systems()?,
             commanders: crate::commanders::parse_candidates(&faces),
+            battle_clips,
+            race_texts: races
+                .chunks_exact(12 * 36)
+                .map(|record| {
+                    std::array::from_fn(|i| {
+                        let field = &record[i * 36..(i + 1) * 36];
+                        let len = usize::from(field[0]).min(35);
+                        field[1..1 + len].iter().map(|&b| b as char).collect()
+                    })
+                })
+                .collect(),
             hire: crate::commanders::HireTables::read(&exe).ok_or(ExeError::OutOfRange)?,
             screen_triggers: (0..=SCREENS)
                 .map(|s| exe.screen_trigger(s))

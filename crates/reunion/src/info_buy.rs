@@ -21,6 +21,7 @@ use bevy::prelude::*;
 use bevy::sprite::Anchor;
 use bevy::state::state::StateTransitionEvent;
 
+use crate::audio::Sfx;
 use crate::focus::{Activated, DefaultFocus, Hover, hotspot};
 use crate::game::Game;
 use crate::game_data::{GameData, GameDataHandle};
@@ -424,13 +425,20 @@ fn bottom_lines(
     text(format!("{}", price.saturating_mul(ordered)), 8, RED_TEXT, Vec2::new(264.0, 189.0));
 }
 
-fn activate(activated: On<Activated>, buttons: Query<&Button>, view: Option<ResMut<View>>) {
+fn activate(
+    activated: On<Activated>,
+    buttons: Query<&Button>,
+    view: Option<ResMut<View>>,
+    mut commands: Commands,
+) {
     let (Ok(&button), Some(mut view)) = (buttons.get(activated.0), view) else {
         return;
     };
     if view.buying.is_some() && button != Button::TogglePicture {
         return;
     }
+    // FUN_32b4_0057: the list says "select", the rest clicks.
+    commands.trigger(Sfx::named(if button == Button::Select { "select" } else { "x" }));
     match button {
         Button::TogglePicture => view.picture = !view.picture,
         Button::Select => view.list = true,

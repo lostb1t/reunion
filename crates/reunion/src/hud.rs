@@ -12,6 +12,7 @@
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
+use crate::audio::{Sfx, SoundSettings};
 use crate::focus::{Activated, DefaultFocus, Focus, Hotspot, Hover, hotspot};
 use crate::game::Game;
 use crate::game_data::{GameData, GameDataHandle, SharedPictures};
@@ -567,6 +568,7 @@ fn on_activated(
     extra: Res<ExtraActions>,
     set: Res<IconSetOverride>,
     mut game: Option<ResMut<Game>>,
+    settings: Option<Res<SoundSettings>>,
     mut commands: Commands,
 ) {
     let Ok((icon, label, role, by_label)) = hotspots.get(activated.0) else {
@@ -576,6 +578,7 @@ fn on_activated(
         return;
     };
     if role == Some(&BarRole::PageToggle) {
+        commands.trigger(Sfx::named("icon"));
         let actions = icon_set(data, &screen, &set, &extra).len();
         let slots = bar_layout(*bounds, actions).slots;
         page.0 = if page.0 + slots >= actions {
@@ -591,6 +594,16 @@ fn on_activated(
         None if by_label => action_for_label(data, label),
         None => return,
     };
+    // The icon bar says what an icon does, or clicks (entry, before FUN_431a_031a).
+    if let (Some(IconAction(action)), Some(settings)) = (icon, settings) {
+        let voice = data.action_voices.get(usize::from(*action)).map_or("", |v| v.as_str());
+        // An empty name loads nothing in the original: silence.
+        match (settings.speech, voice) {
+            (true, "") => {}
+            (true, voice) => commands.trigger(Sfx::named(voice)),
+            (false, _) => commands.trigger(Sfx::named("x")),
+        }
+    }
     let target = action.and_then(|a| screen_for_action(data, a));
     if target.is_none()
         && let Some(action) = action

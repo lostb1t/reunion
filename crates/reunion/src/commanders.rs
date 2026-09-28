@@ -12,6 +12,7 @@ use bevy::prelude::*;
 use bevy::sprite::Anchor;
 use reunion_formats::exe::GameExe;
 
+use crate::audio::Sfx;
 use crate::focus::{Activated, Hover, hotspot};
 use crate::game::Game;
 use crate::game_data::{GameData, GameDataHandle};
@@ -254,13 +255,17 @@ fn texts_for(
     [stored[0].clone(), stored[1].clone(), third, fourth]
 }
 
-fn pick_category(action: On<ActionUsed>, view: Option<ResMut<View>>) {
+fn pick_category(action: On<ActionUsed>, view: Option<ResMut<View>>, mut commands: Commands) {
     let Some(mut view) = view else { return };
     if let Some(category) = action
         .0
         .checked_sub(FIRST_CATEGORY_ACTION)
         .filter(|c| *c < 4)
     {
+        // The category's name, or a click when it's already shown.
+        let sound = ["pilots", "builders", "fighters", "develope"][category as usize];
+        let changed = view.category != category as usize + 1;
+        commands.trigger(Sfx::named(if changed { sound } else { "x" }));
         view.category = category as usize + 1;
         view.candidate = 0;
     }
@@ -338,6 +343,7 @@ fn hire(
     handle: Res<GameDataHandle>,
     data: Res<Assets<GameData>>,
     game: Option<ResMut<Game>>,
+    mut commands: Commands,
 ) {
     if action.0 != HIRE_MAN || *screen.get() != GameScreen::Commanders {
         return;
@@ -355,13 +361,16 @@ fn hire(
     let hired = state.word(HIRED + 2 * category as u16).unwrap_or(0) as usize;
     if candidate <= hired {
         info!("{} is no better than your commander", candidate);
+        commands.trigger(Sfx::named("hiba"));
         return;
     }
     let salary = tables.salary(category, candidate);
     if state.money() < salary {
         info!("not enough money to hire");
+        commands.trigger(Sfx::named("hiba"));
         return;
     }
+    commands.trigger(Sfx::named("welcome"));
     let money = state.money() - salary;
     state.set_word(MONEY_LOW, money as u16);
     state.set_word(MONEY_HIGH, (money >> 16) as u16);

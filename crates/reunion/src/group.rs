@@ -20,6 +20,7 @@ use bevy::state::state::StateTransitionEvent;
 use reunion_formats::exe::UnitCategory;
 use reunion_formats::state::{UnitList, unit};
 
+use crate::audio::Sfx;
 use crate::focus::{Activated, AlternateUse, DefaultFocus, Focus, Hover, hotspot};
 use crate::game::Game;
 use crate::game_data::{GameData, GameDataHandle};
@@ -549,6 +550,7 @@ fn activate(
     else {
         return;
     };
+    commands.trigger(Sfx::named("x"));
     match button {
         Button::Name => {
             let name = game.0.unit(view.list, view.unit).map(unit_name).unwrap_or_default();

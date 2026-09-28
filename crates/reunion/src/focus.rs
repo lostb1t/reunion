@@ -10,7 +10,8 @@ use crate::input::{Alternate, Click, Confirm, Navigate};
 use crate::popup::PopupOpen;
 use crate::text::TextEditing;
 use crate::pic::rgba_image;
-use crate::screen::{place, world_to_game};
+use crate::screen::place;
+use crate::upscale::Canvas;
 
 pub struct FocusPlugin;
 
@@ -108,7 +109,7 @@ fn hotspot_at<'a>(
 fn track_cursor(
     mut moved: MessageReader<CursorMoved>,
     window: Single<&Window, With<PrimaryWindow>>,
-    camera: Single<(&Camera, &GlobalTransform)>,
+    canvas: Res<Canvas>,
     hotspots: Query<(Entity, &Hotspot)>,
     mut cursor: ResMut<Cursor>,
     mut focus: ResMut<Focus>,
@@ -116,11 +117,7 @@ fn track_cursor(
     if moved.read().last().is_none() {
         return;
     }
-    let (camera, camera_transform) = *camera;
-    cursor.0 = window
-        .cursor_position()
-        .and_then(|p| camera.viewport_to_world_2d(camera_transform, p).ok())
-        .map(world_to_game);
+    cursor.0 = window.cursor_position().map(|p| canvas.to_game(p));
     if let Some(pos) = cursor.0 {
         // The mouse takes over focus whenever it moves.
         focus.0 = hotspot_at(pos, hotspots);

@@ -20,6 +20,7 @@ use bevy::prelude::*;
 use bevy::sprite::Anchor;
 use reunion_formats::state::{GameState, SAVE_NAME_LEN};
 
+use crate::audio::{GameMusic, Sfx, SoundSettings};
 use crate::focus::{Activated, Hover, hotspot};
 use crate::game::Game;
 use crate::game_data::{GameData, GameDataHandle};
@@ -64,7 +65,7 @@ const BUTTONS: [(f32, f32, f32, f32, &str); 4] = [
     (273.0, 155.0, 16.0, 13.0, "Music 1"),
     (290.0, 155.0, 16.0, 13.0, "Music 2"),
     (273.0, 169.0, 34.0, 13.0, "Stop music"),
-    (273.0, 183.0, 34.0, 13.0, "Effects on/off"),
+    (273.0, 183.0, 34.0, 13.0, "Speech on/off"),
 ];
 
 /// Save slot names (None for empty) and the selected slot, 1-based.
@@ -80,8 +81,9 @@ struct SlotRow(u8);
 #[derive(Component)]
 struct SlotText(u8);
 
+/// One of the music panel's buttons (0-3, in BUTTONS' order).
 #[derive(Component)]
-struct CdButton;
+struct CdButton(usize);
 
 /// `SAVE/SPIDYSAV.<n>` in the game folder, like the original.
 fn save_path(slot: u8) -> PathBuf {
@@ -138,9 +140,9 @@ fn enter(mut commands: Commands, asset_server: Res<AssetServer>, screen: Res<Sta
             scoped.clone(),
         ));
     }
-    for (x, y, width, height, label) in BUTTONS {
+    for (k, (x, y, width, height, label)) in BUTTONS.into_iter().enumerate() {
         commands.spawn((
-            CdButton,
+            CdButton(k),
             HoverLabel(label.to_string()),
             hotspot(Rect::new(x, y, x + width, y + height), Hover::Outline),
             scoped.clone(),
@@ -171,15 +173,34 @@ fn update_slot_texts(
     }
 }
 
-fn select_slot(activated: On<Activated>, rows: Query<&SlotRow>, slots: Option<ResMut<Slots>>) {
+fn select_slot(
+    activated: On<Activated>,
+    rows: Query<&SlotRow>,
+    slots: Option<ResMut<Slots>>,
+    mut commands: Commands,
+) {
     if let (Ok(SlotRow(slot)), Some(mut slots)) = (rows.get(activated.0), slots) {
+        commands.trigger(Sfx::named("x"));
         slots.selected = *slot;
     }
 }
 
-fn press_button(activated: On<Activated>, buttons: Query<&HoverLabel, With<CdButton>>) {
-    if let Ok(label) = buttons.get(activated.0) {
-        info!("{}: there is no sound yet", label.0);
+/// FUN_1a3e_0008: the music panel. MAIN1, MAIN2, the quiet NO, and
+/// speech on the icons or just clicks (DS:0x9600).
+fn press_button(
+    activated: On<Activated>,
+    buttons: Query<&CdButton>,
+    mut music: ResMut<GameMusic>,
+    mut settings: ResMut<SoundSettings>,
+    mut commands: Commands,
+) {
+    let Ok(&CdButton(k)) = buttons.get(activated.0) else { return };
+    commands.trigger(Sfx::named("x"));
+    match k {
+        0 => music.background = 1,
+        1 => music.background = 2,
+        2 => music.background = 0,
+        _ => settings.speech = !settings.speech,
     }
 }
 

@@ -10,9 +10,10 @@
 //! it and draw extension art (from the `art://` source) beside the original
 //! pictures; 4:3 screens just leave the sides black.
 
-use bevy::camera::ScalingMode;
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
+
+use crate::upscale::{FitCanvas, GameCamera};
 
 pub const GAME_WIDTH: f32 = 320.0;
 pub const GAME_HEIGHT: f32 = 200.0;
@@ -21,7 +22,9 @@ pub const PIXEL_ASPECT: f32 = 1.2;
 
 #[derive(States, Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum GameScreen {
+    /// The original's separate programs: company credits, intro, victory.
     #[default]
+    Cutscene,
     MainMenu,
     ChooseHero,
     HeroIntro,
@@ -51,7 +54,6 @@ pub enum GameScreen {
     StoryScene,
     GroundSetup,
     GroundWar,
-    GameEnd,
     SpaceLocal,
     PubTalk,
     AlienTalk,
@@ -111,9 +113,9 @@ impl GameScreen {
                 | GameScreen::StoryScene
                 | GameScreen::GroundSetup
                 | GameScreen::GroundWar
-                | GameScreen::GameEnd
                 | GameScreen::AlienTalk
                 | GameScreen::PubTalk
+                | GameScreen::Cutscene
         )
     }
 
@@ -193,13 +195,12 @@ impl Plugin for ScreenPlugin {
         app.init_state::<GameScreen>()
             .insert_resource(Widescreen(true))
             .init_resource::<ViewBounds>()
-            .add_systems(Startup, spawn_camera)
-            .add_systems(PreUpdate, update_view_bounds);
+            .add_systems(PreUpdate, update_view_bounds.after(FitCanvas));
     }
 }
 
 fn update_view_bounds(
-    projection: Single<&Projection, With<Camera2d>>,
+    projection: Single<&Projection, With<GameCamera>>,
     widescreen: Res<Widescreen>,
     screen: Res<State<GameScreen>>,
     mut bounds: ResMut<ViewBounds>,
@@ -220,30 +221,10 @@ fn update_view_bounds(
     bounds.set_if_neq(new);
 }
 
-fn spawn_camera(mut commands: Commands) {
-    commands.spawn((
-        Camera2d,
-        Projection::Orthographic(OrthographicProjection {
-            scaling_mode: ScalingMode::AutoMin {
-                min_width: GAME_WIDTH,
-                min_height: GAME_HEIGHT * PIXEL_ASPECT,
-            },
-            ..OrthographicProjection::default_2d()
-        }),
-    ));
-}
-
 pub fn game_to_world(pos: Vec2) -> Vec2 {
     Vec2::new(
         pos.x - GAME_WIDTH / 2.0,
         (GAME_HEIGHT / 2.0 - pos.y) * PIXEL_ASPECT,
-    )
-}
-
-pub fn world_to_game(pos: Vec2) -> Vec2 {
-    Vec2::new(
-        pos.x + GAME_WIDTH / 2.0,
-        GAME_HEIGHT / 2.0 - pos.y / PIXEL_ASPECT,
     )
 }
 

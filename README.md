@@ -99,6 +99,22 @@ goes on to a ground war on your colony. Winning a ground war on an alien planet 
 your colony; taking a race's capital eliminates it. Taking the Earthlings' capital wins
 the game, and losing New Earth ends it.
 
+## Sound, music and cutscenes
+
+- **Effects and speech**: `SOUND*/…SMP` are Creative Voice data blocks (8-bit
+  PCM); one plays at a time, a new one cutting off the last, like on the Sound
+  Blaster. The icon bar says what each icon does (the voice table at
+  `DS:0x4e56`); screens, battles and message boxes play what the original does.
+- **Music**: ProTracker modules, played by the rewrite's own player
+  (`reunion-formats/src/module.rs`). The cutscenes have `*.MOD`; the game has
+  `ANIM/*.SPD` (modules too): a background track (MAIN1, MAIN2, or the silent NO,
+  picked with the disk screen's music buttons) and tracks of its own for choosing a
+  hero, space battles, ground wars, talking with aliens, story pictures and defeat.
+- **Cutscenes**: `START.EXE` runs `CREDITS.PRG` and `INTRO.PRG` before the game and
+  `VICTORY.PRG` after a win. Their scripts are ported as data in
+  `crates/reunion/src/cutscene.rs`: pictures and `.ANI` animations (`ani.rs`)
+  synced to the music, palette fades, and 640 x 480 stills. Any button skips.
+
 ## Cheats
 
 The executable contains two developer cheats, but nothing in the shipped game turns

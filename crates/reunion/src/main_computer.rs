@@ -12,6 +12,7 @@ use bevy::prelude::*;
 use bevy::sprite::Anchor;
 use bevy_enhanced_input::prelude::*;
 
+use crate::audio::Sfx;
 use crate::game::Game;
 use crate::game_data::{GameData, GameDataHandle};
 use crate::hud::{ActionUsed, CONTENT_Y, RED_TEXT, YELLOW_TEXT};
@@ -303,14 +304,16 @@ fn update_rows(
     }
 }
 
-fn pick_list(action: On<ActionUsed>, listing: Option<ResMut<Listing>>) {
+fn pick_list(action: On<ActionUsed>, listing: Option<ResMut<Listing>>, mut commands: Commands) {
     let Some(mut listing) = listing else { return };
-    let list = match action.0 {
-        YOUR_PLANETS => List::Yours,
-        USEFUL_PLANETS => List::Useful,
-        ALIEN_PLANETS => List::Alien,
+    let (list, sound) = match action.0 {
+        YOUR_PLANETS => (List::Yours, "plyour"),
+        USEFUL_PLANETS => (List::Useful, "pluseful"),
+        ALIEN_PLANETS => (List::Alien, "plalien"),
         _ => return,
     };
+    // The entry's voice for the list, or a click when it's already showing.
+    commands.trigger(Sfx::named(if listing.list == list { "x" } else { sound }));
     listing.list = list;
     listing.first = 0;
 }

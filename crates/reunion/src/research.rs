@@ -12,6 +12,7 @@
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
+use crate::audio::Sfx;
 use crate::focus::{Activated, DefaultFocus, Hover, hotspot};
 use crate::game::Game;
 use crate::game_data::{GameData, GameDataHandle};
@@ -341,7 +342,12 @@ fn update_texts(
 }
 
 /// FUN_2d66_0029: choosing an invention shows it and starts or stops its project.
-fn choose(activated: On<Activated>, slots: Query<&InventionSlot>, game: Option<ResMut<Game>>) {
+fn choose(
+    activated: On<Activated>,
+    slots: Query<&InventionSlot>,
+    game: Option<ResMut<Game>>,
+    mut commands: Commands,
+) {
     let (Ok(InventionSlot(invention)), Some(mut game)) = (slots.get(activated.0), game) else {
         return;
     };
@@ -352,7 +358,18 @@ fn choose(activated: On<Activated>, slots: Query<&InventionSlot>, game: Option<R
     }
     game.0.set_word(SELECTED, invention as u16);
     if hidden_invention(&game, invention) {
+        commands.trigger(Sfx::named("x"));
         return;
+    }
+    // Starting, aborting, or looking at a finished design.
+    let sound = match current {
+        1 | 3 => Some("startdes"),
+        2 | 4 => Some("designab"),
+        5 => Some("designre"),
+        _ => None,
+    };
+    if let Some(sound) = sound {
+        commands.trigger(Sfx::named(sound));
     }
     let project = game.0.word(PROJECT).unwrap_or(0) as usize;
     let set_status = |game: &mut Game, invention: usize, status: u16| {

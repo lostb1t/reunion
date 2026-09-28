@@ -13,14 +13,17 @@
 //!   is hired and there are ships;
 //! - TRANSFER (trade and secret forces), SHIPS and GROUP.
 //!
-//! Not yet: the cockpit's animations and the story events of docking at
-//! certain planets.
+//! The cockpit moves (FUN_22ca_21ef): six lights flicker, one of six small
+//! screens changes now and then, an indicator turns, all from
+//! PLANETS/MUSZIANM; while travelling, stars fly past the window. Landing
+//! at a few places brings finds (`docking_events`).
 
 
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 use reunion_formats::state::{UnitList, unit};
 
+use crate::audio::Sfx;
 use crate::focus::{Activated, Hover, hotspot};
 use crate::game::{Game, random};
 use crate::game_data::{GameData, GameDataHandle};
@@ -37,7 +40,7 @@ impl Plugin for ControlPanelPlugin {
         app.add_systems(OnEnter(GameScreen::ControlPanel), enter.after(crate::hud::spawn_hud))
             .add_systems(
                 Update,
-                (spawn_view, key_window).run_if(in_state(GameScreen::ControlPanel)),
+                (spawn_view, key_window, animate, fly_stars).run_if(in_state(GameScreen::ControlPanel)),
             )
             .add_observer(activate);
     }
@@ -186,6 +189,37 @@ fn spawn_view(
         scoped.clone(),
     ));
 
+    // FUN_22ca_1e78 / 1de8 / 1e2f: the moving parts.
+    let parts_image: Handle<Image> = asset_server.load("PLANETS/MUSZIANM.PIC");
+    let part = |commands: &mut Commands, part: CockpitPart, rect: Rect, at: Vec2| {
+        commands.spawn((
+            part,
+            Sprite {
+                image: parts_image.clone(),
+                rect: Some(rect),
+                ..default()
+            },
+            Anchor::TOP_LEFT,
+            place(at, 0.2),
+            scoped.clone(),
+        ));
+    };
+    for k in 0..6 {
+        let (x, y, w, h) = light(data, k);
+        part(&mut commands, CockpitPart::Light(k, y), Rect::new(89.0 + x, 32.0 + y, 89.0 + x + w, 32.0 + y + h), Vec2::new(201.0 + x, 127.0 + y));
+    }
+    part(&mut commands, CockpitPart::Screen, Rect::new(135.0, 46.0, 159.0, 64.0), Vec2::new(201.0, 183.0));
+    part(&mut commands, CockpitPart::Indicator, Rect::new(89.0, 54.0, 99.0, 70.0), Vec2::new(193.0, 151.0));
+    if (4..=6).contains(&status) {
+        commands.spawn((
+            Stars::new(),
+            Sprite::default(),
+            Anchor::TOP_LEFT,
+            place(Vec2::new(0.0, CONTENT_Y), 0.05),
+            scoped.clone(),
+        ));
+    }
+
     let lever = match status {
         DOCKED => "Launch",
         IN_ORBIT => "Docking",
@@ -217,6 +251,117 @@ fn spawn_view(
                 hotspot(rect, Hover::Outline),
                 scoped.clone(),
             ));
+        }
+    }
+}
+
+/// A moving part of the cockpit.
+#[derive(Component, Clone, Copy)]
+enum CockpitPart {
+    /// Light k, and its row offset in the row of lights.
+    Light(usize, f32),
+    Screen,
+    Indicator,
+}
+
+/// Light k (0-5): where it is in the row of lights and its size
+/// (DS:0x7d8, 0x7e4, 0x7f0, 0x7fc).
+fn light(data: &GameData, k: usize) -> (f32, f32, f32, f32) {
+    let word = |at: u16| data.exe.ds_bytes(at + 2 * (k as u16 + 1), 2).map_or(0.0, |b| f32::from(i16::from_le_bytes([b[0], b[1]])));
+    (word(0x7d6), word(0x7e2), word(0x7ee), word(0x7fa))
+}
+
+/// Cockpit steps per second (the original's main loop).
+const COCKPIT_HZ: f32 = 18.2;
+
+fn animate(
+    time: Res<Time>,
+    mut clock: Local<(f32, u32)>,
+    mut lights: Local<[bool; 6]>,
+    mut parts: Query<(&CockpitPart, &mut Sprite)>,
+) {
+    clock.0 += time.delta_secs() * COCKPIT_HZ;
+    while clock.0 >= 1.0 {
+        clock.0 -= 1.0;
+        clock.1 = clock.1.wrapping_add(1);
+        let step = clock.1;
+        // A random light flips half the time.
+        let k = usize::from(random(6));
+        if random(2) == 0 {
+            lights[k] = !lights[k];
+        }
+        let screen = step.is_multiple_of(6).then(|| f32::from(random(6)));
+        for (part, mut sprite) in &mut parts {
+            let Some(rect) = sprite.rect.as_mut() else { continue };
+            match *part {
+                CockpitPart::Light(k, y) => {
+                    // The lit lights are 11 rows further down the sheet.
+                    let top = if lights[k] { 43.0 } else { 32.0 } + y;
+                    let height = rect.height();
+                    rect.min.y = top;
+                    rect.max.y = top + height;
+                }
+                CockpitPart::Screen => {
+                    if let Some(s) = screen {
+                        rect.min.x = 135.0 + 26.0 * s;
+                        rect.max.x = rect.min.x + 24.0;
+                    }
+                }
+                CockpitPart::Indicator => {
+                    rect.min.x = 89.0 + 11.0 * ((step % 32) / 8) as f32;
+                    rect.max.x = rect.min.x + 10.0;
+                }
+            }
+        }
+    }
+}
+
+/// FUN_22ca_1fb5: stars coming at you through the window while travelling.
+#[derive(Component)]
+struct Stars {
+    /// x, y (-, +) and depth.
+    stars: Vec<(f32, f32, f32, f32)>,
+    image: Option<Handle<Image>>,
+}
+
+const STAR_AREA: (usize, usize) = (320, 110);
+
+impl Stars {
+    fn new() -> Self {
+        let star = || {
+            (
+                f32::from(random(28000)) - 14000.0,
+                f32::from(random(9000)) - 4500.0,
+                f32::from(random(500)) + 500.0,
+                f32::from(random(3) + 1),
+            )
+        };
+        Self { stars: (0..300).map(|_| star()).collect(), image: None }
+    }
+}
+
+fn fly_stars(time: Res<Time>, mut stars: Query<(&mut Stars, &mut Sprite)>, mut images: ResMut<Assets<Image>>) {
+    let steps = time.delta_secs() * COCKPIT_HZ;
+    let (w, h) = STAR_AREA;
+    for (mut field, mut sprite) in &mut stars {
+        let mut rgba = vec![0u8; w * h * 4];
+        for (x, y, z, speed) in &mut field.stars {
+            *z -= *speed * 4.0 * steps;
+            let (sx, sy) = (*x / (*z + 100.0) + 160.0, *y / (*z + 100.0) + 55.0);
+            if *z < 1.0 || !(0.0..w as f32).contains(&sx) || !(0.0..h as f32).contains(&sy) {
+                *z = f32::from(random(500)) + 500.0;
+                continue;
+            }
+            let bright = (255.0 - *z / 4.0).clamp(60.0, 255.0) as u8;
+            let at = (sy as usize * w + sx as usize) * 4;
+            rgba[at..at + 4].copy_from_slice(&[bright, bright, bright, 255]);
+        }
+        if let Some(mut image) = field.image.as_ref().and_then(|i| images.get_mut(i)) {
+            image.data = Some(rgba);
+        } else {
+            let handle = images.add(crate::pic::rgba_image(w as u32, h as u32, rgba));
+            sprite.image = handle.clone();
+            field.image = Some(handle);
         }
     }
 }
@@ -264,7 +409,10 @@ fn activate(
     let status = group[unit::STATUS];
     let say = |commands: &mut Commands, text: &str| commands.trigger(ShowMessage::new(text));
     match control {
-        Control::Window => commands.trigger(GoTo(GameScreen::PlanetMain)),
+        Control::Window => {
+            commands.trigger(Sfx::named("surface"));
+            commands.trigger(GoTo(GameScreen::PlanetMain));
+        }
         Control::Lever if matches!(status, DOCKED | IN_ORBIT) => {
             let planet = planet_record(&game, data, &group);
             let at_new_earth = (group[unit::SYSTEM], group[unit::PLANET], group[unit::MOON]) == (1, 5, 0);
@@ -287,9 +435,17 @@ fn activate(
                 if let Some(g) = game.0.unit_mut(UnitList::Groups, n) {
                     g[unit::STATUS] = 3 - status;
                 }
+                // FUN_22ca_0bbc / _0fd3: the launch and landing animations' sounds.
+                commands.trigger(Sfx::named(if status == DOCKED { "launch" } else { "landing" }));
+                for event in game.0.docking_events(&data.sim_texts, (s, p, m), &mut random) {
+                    commands.trigger(crate::story::Tell(event));
+                }
             }
         }
-        Control::Transfer => commands.trigger(GoTo(GameScreen::Transfer)),
+        Control::Transfer => {
+            commands.trigger(Sfx::named("transfer"));
+            commands.trigger(GoTo(GameScreen::Transfer));
+        }
         Control::Move if status > DOCKED => {
             let pilots = game.0.word(0x95a4).unwrap_or(0);
             if pilots == 0 && group[unit::TYPE] != 4 {
@@ -301,11 +457,18 @@ fn activate(
                 let s = group[unit::SYSTEM];
                 game.select(s.into(), 0, 0);
                 commands.insert_resource(Destination { unit: n, chosen: None });
+                commands.trigger(Sfx::named("controll"));
                 commands.trigger(GoTo(GameScreen::GalacticMap));
             }
         }
-        Control::Ships => commands.trigger(GoTo(GameScreen::ShipInfo)),
-        Control::Group => commands.trigger(GoTo(GameScreen::Group)),
+        Control::Ships => {
+            commands.trigger(Sfx::named("baseeff"));
+            commands.trigger(GoTo(GameScreen::ShipInfo));
+        }
+        Control::Group => {
+            commands.trigger(Sfx::named("group"));
+            commands.trigger(GoTo(GameScreen::Group));
+        }
         _ => {}
     }
 }

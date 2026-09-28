@@ -247,6 +247,36 @@ impl GameState {
         }
     }
 
+    /// FUN_22ca_0105: landing on or leaving certain places, the first time
+    /// (while an invention hasn't come up): what's found there.
+    pub fn docking_events(&mut self, texts: &Texts, place: (u8, u8, u8), random: Random) -> Vec<Event> {
+        let message = |n: usize| Event::Message(texts.messages.get(n - 1).cloned().unwrap_or_default());
+        let status = |state: &Self, n: u16| state.word(0x5d77 + 0x35 * n + 0x11).unwrap_or(0);
+        let mut events = Vec::new();
+        match place {
+            // Jade, while the Jaanosians aren't there.
+            (1, 7, 0) if self.body(1, 7).is_some_and(|r| r[0] != 2) && status(self, 12) == 0 => {
+                events.push(message(0xd));
+                self.make_known(0xc);
+            }
+            (3, 2, 1) if status(self, 22) == 0 => {
+                events.push(message(0x15));
+                self.make_known(0x16);
+                self.make_known(0x17);
+                events.push(Event::Scene(4));
+            }
+            (7, 1, 0) if status(self, 31) == 0 => {
+                events.push(message(0x1f));
+                self.make_known(0x1f);
+                self.make_known(0x20);
+                self.start_invention_timer(0x22, 0x14, 100, random);
+                events.push(Event::Scene(6));
+            }
+            _ => {}
+        }
+        events
+    }
+
     /// The story's hour (FUN_1b8a_3d07 after the invention timers).
     pub fn story_hour(&mut self, exe: &GameExe, texts: &Texts, random: Random) -> Vec<Event> {
         let mut events = Vec::new();

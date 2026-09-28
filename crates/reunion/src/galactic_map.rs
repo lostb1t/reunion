@@ -39,6 +39,7 @@ use reunion_formats::state::Orbit;
 use reunion_formats::aliens::{ALLIED, AT_WAR, MapEntry, MapObject};
 use reunion_formats::state::{UnitList, unit};
 
+use crate::audio::Sfx;
 use crate::control_panel::Destination;
 use crate::space_battle::BattleStart;
 use crate::focus::{Activated, AlternateUse, Hover, hotspot};
@@ -510,6 +511,7 @@ fn open_body(
     if let Some(mut destination) = destination {
         let (s, p) = (view.system as u8, view.planet as u8);
         destination.chosen = Some(if p == 0 { (s, *index as u8, 0) } else { (s, p, *index as u8) });
+        commands.trigger(Sfx::named("moveship"));
         commands.trigger(GoTo(GameScreen::ControlPanel));
         return;
     }
@@ -518,6 +520,7 @@ fn open_body(
     } else {
         game.select(view.system, view.planet, *index);
     }
+    commands.trigger(Sfx::named("planetin"));
     commands.trigger(GoTo(GameScreen::PlanetInfo));
 }
 
@@ -529,6 +532,7 @@ fn show_moons(
     destination: Option<Res<Destination>>,
     view: Option<ResMut<View>>,
     game: Option<ResMut<Game>>,
+    mut commands: Commands,
 ) {
     let (Ok(BodyHotspot(index)), Some(_), Some(mut view), Some(mut game)) =
         (hotspots.get(used.0), destination, view, game)
@@ -538,6 +542,7 @@ fn show_moons(
     if view.planet == 0 {
         game.select(view.system, *index, 0);
         view.planet = *index;
+        commands.trigger(Sfx::named("planet"));
     }
 }
 
@@ -557,12 +562,14 @@ fn pick_system(
     };
     if stars.contains(activated.0) {
         destination.chosen = Some((view.system as u8, 0, 0));
+        commands.trigger(Sfx::named("moveship"));
         commands.trigger(GoTo(GameScreen::ControlPanel));
         return;
     }
     let Ok(&SystemButton(system)) = buttons.get(activated.0) else {
         return;
     };
+    commands.trigger(Sfx::named("x"));
     if u16::from(system) == view.system {
         return;
     }
@@ -752,6 +759,7 @@ fn spawn_objects(
 /// Selecting something in the list.
 fn select_object(activated: On<Activated>, slots: Query<&ObjectSlot>, mut commands: Commands) {
     if let Ok(slot) = slots.get(activated.0) {
+        commands.trigger(Sfx::named("x"));
         commands.insert_resource(Selected(slot.0));
     }
 }
@@ -766,6 +774,7 @@ fn open_group(used: On<AlternateUse>, slots: Query<&ObjectSlot>, game: Option<Re
     }
     let count = game.0.word(0xa2c4).unwrap_or(0);
     game.0.set_word(0xa2c2, count);
+    commands.trigger(Sfx::named("controll"));
     commands.trigger(GoTo(GameScreen::ControlPanel));
 }
 
