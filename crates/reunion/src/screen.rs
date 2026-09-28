@@ -48,6 +48,13 @@ pub enum GameScreen {
     ResourceMine,
     Colonize,
     SpaceBattle,
+    StoryScene,
+    GroundSetup,
+    GroundWar,
+    GameEnd,
+    SpaceLocal,
+    PubTalk,
+    AlienTalk,
 }
 
 impl GameScreen {
@@ -82,6 +89,12 @@ impl GameScreen {
             GameScreen::ResourceMine => Some(4),
             GameScreen::Colonize => Some(28),
             GameScreen::SpaceBattle => Some(29),
+            GameScreen::StoryScene => Some(33),
+            GameScreen::GroundSetup => Some(19),
+            GameScreen::GroundWar => Some(32),
+            GameScreen::SpaceLocal => Some(23),
+            GameScreen::PubTalk => Some(25),
+            GameScreen::AlienTalk => Some(34),
             _ => None,
         }
     }
@@ -95,6 +108,12 @@ impl GameScreen {
                 | GameScreen::Colonize
                 | GameScreen::CreateUnit
                 | GameScreen::SpaceBattle
+                | GameScreen::StoryScene
+                | GameScreen::GroundSetup
+                | GameScreen::GroundWar
+                | GameScreen::GameEnd
+                | GameScreen::AlienTalk
+                | GameScreen::PubTalk
         )
     }
 
@@ -105,7 +124,13 @@ impl GameScreen {
     }
 
     /// All in-game screens (the ones with the icon bar and text strip).
-    pub const IN_GAME: [GameScreen; 21] = [
+    pub const IN_GAME: [GameScreen; 27] = [
+        GameScreen::GroundSetup,
+        GameScreen::GroundWar,
+        GameScreen::SpaceLocal,
+        GameScreen::PubTalk,
+        GameScreen::StoryScene,
+        GameScreen::AlienTalk,
         GameScreen::SpaceBattle,
         GameScreen::Colonize,
         GameScreen::ResourceMine,

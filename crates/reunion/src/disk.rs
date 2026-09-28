@@ -88,8 +88,15 @@ fn save_path(slot: u8) -> PathBuf {
     game_folder().join("SAVE").join(format!("SPIDYSAV.{slot}"))
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn game_folder() -> PathBuf {
     bevy::asset::io::file::FileAssetReader::get_base_path().join("assets")
+}
+
+/// The browser has no game folder to save in; reading and writing fail.
+#[cfg(target_arch = "wasm32")]
+fn game_folder() -> PathBuf {
+    PathBuf::from("assets")
 }
 
 /// The name stored at the start of a save file, if the slot is used.

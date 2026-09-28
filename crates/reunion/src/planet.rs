@@ -20,7 +20,10 @@
 //!   building removes it for 2000. Clicking a building shows its info; a
 //!   finished mine opens RESOURCE-MINE.
 //!
-//! Not yet: the radar map.
+//! - The radar map (FUN_2ef2_2c52), centred in the 90x60 area at (1, 139):
+//!   a pixel per cell (two by two on small maps) from PLANETS/RADAR<terrain>
+//!   (buildings on the left half, the ground on the right), with the view
+//!   marked; black without a finished radar there.
 
 use std::collections::HashMap;
 
@@ -60,6 +63,7 @@ impl Plugin for PlanetPlugin {
                     track_hover,
                     update_tiles,
                     update_panel,
+                    update_radar,
                     blink,
                 )
                     .chain()
@@ -150,6 +154,10 @@ struct Surface {
 
 #[derive(Component)]
 struct Frame;
+
+/// The radar map, and its colours (PLANETS/RADAR<terrain>).
+#[derive(Component)]
+struct Radar(Handle<Image>);
 
 #[derive(Component)]
 struct Tile(usize, usize);
@@ -274,6 +282,14 @@ fn enter(
         }
         commands.spawn((button, HoverLabel(name.into()), hotspot(rect, Hover::Outline), scoped.clone()));
     }
+    commands.spawn((
+        Radar(asset_server.load(format!("PLANETS/RADAR{terrain_number}.PIC"))),
+        Sprite::default(),
+        Anchor::TOP_LEFT,
+        place(Vec2::new(1.0, 139.0), 0.6),
+        Visibility::Hidden,
+        scoped.clone(),
+    ));
     // BUILD / DEMOLISH blink red while in use (FUN_2ef2_15de).
     for (normal, red, at) in [
         (Rect::new(106.0, 23.0, 150.0, 36.0), Rect::new(150.0, 23.0, 194.0, 36.0), 0.0),
@@ -943,6 +959,93 @@ fn use_action(action: On<ActionUsed>, screen: Res<State<GameScreen>>, mut comman
         PLANET_FORCES => commands.trigger(GoTo(GameScreen::Group)),
         _ => {}
     }
+}
+
+/// FUN_2ef2_2c52: the radar map.
+#[allow(clippy::type_complexity)]
+fn update_radar(
+    surface: Res<Surface>,
+    game: Option<Res<Game>>,
+    maps: Res<Assets<PlanetMap>>,
+    mut images: ResMut<Assets<Image>>,
+    mut radars: Query<(&Radar, &mut Sprite, &mut Transform, &mut Visibility)>,
+    mut shown: Local<Option<(Option<Vec<Vec<u8>>>, Option<IVec2>)>>,
+) {
+    let key = (surface.stamped.clone(), surface.scroll);
+    if shown.as_ref() == Some(&key) {
+        return;
+    }
+    let (Some(game), Some(map)) = (game, maps.get(&surface.map)) else { return };
+    let Ok((radar, mut sprite, mut transform, mut visibility)) = radars.single_mut() else { return };
+    let Some(sheet) = images.get(&radar.0).and_then(|i| i.data.clone()) else { return };
+    *shown = Some(key);
+    if !surface.visible {
+        *visibility = Visibility::Hidden;
+        return;
+    }
+    let (w, h) = (map.0.width, map.0.height);
+    let scale = if w < 0x2e && h < 0x1f { 2 } else { 1 };
+    let working = game.0.buildings_at(surface.place).iter().any(|&n| {
+        let b = &game.0.buildings()[n - 1];
+        b[building::TYPE] == 17 && b[building::CONSTRUCTION] == 0 && b[building::ACTIVE] != 0
+    });
+    let (iw, ih) = (w * scale + 2, h * scale + 2);
+    let mut pixels = vec![0u8; iw * ih * 4];
+    let mut put = |x: usize, y: usize, px: &[u8]| {
+        let t = (y * iw + x) * 4;
+        pixels[t..t + 4].copy_from_slice(px);
+    };
+    const FRAME: [u8; 4] = [160, 160, 192, 255];
+    const VIEW: [u8; 4] = [231, 69, 24, 255];
+    for x in 0..iw {
+        put(x, 0, &FRAME);
+        put(x, ih - 1, &FRAME);
+    }
+    for y in 0..ih {
+        put(0, y, &FRAME);
+        put(iw - 1, y, &FRAME);
+    }
+    for cy in 0..h {
+        for cx in 0..w {
+            let (sx, sy) = match surface.layer.get(&(cx, cy)) {
+                Some((Some(t), _)) if working => ((*t % 20) as usize * 2, (*t / 20) as usize * 2),
+                _ => {
+                    let t = map.0.tile(cx, cy).unwrap_or(0) as usize;
+                    (t % 20 * 2 + 40, t / 20 * 2)
+                }
+            };
+            for dy in 0..scale {
+                for dx in 0..scale {
+                    let px = if working {
+                        let s = ((sy + dy) * 80 + sx + dx) * 4;
+                        sheet.get(s..s + 4).map_or([0, 0, 0, 255], |p| [p[0], p[1], p[2], 255])
+                    } else {
+                        [0, 0, 0, 255]
+                    };
+                    put(1 + cx * scale + dx, 1 + cy * scale + dy, &px);
+                }
+            }
+        }
+    }
+    if let Some(scroll) = surface.scroll {
+        let (x0, y0) = (1 + scroll.x as usize * scale, 1 + scroll.y as usize * scale);
+        let (x1, y1) = ((x0 + 14 * scale - 1).min(iw - 1), (y0 + 9 * scale - 1).min(ih - 1));
+        for x in x0..=x1 {
+            put(x, y0, &VIEW);
+            put(x, y1, &VIEW);
+        }
+        for y in y0..=y1 {
+            put(x0, y, &VIEW);
+            put(x1, y, &VIEW);
+        }
+    }
+    sprite.image = images.add(crate::pic::rgba_image(iw as u32, ih as u32, pixels));
+    let at = Vec2::new(
+        ((90 - (w * scale) as i32) / 2) as f32,
+        ((60 - (h * scale) as i32) / 2 + 138) as f32,
+    );
+    *transform = place(at, 0.6);
+    *visibility = Visibility::Inherited;
 }
 
 #[cfg(test)]

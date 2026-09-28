@@ -114,14 +114,23 @@ fn on_back(
         | GameScreen::Credits
         | GameScreen::ShipInfo
         | GameScreen::InfoBuy
-        | GameScreen::StaffTalk => GameScreen::MainScreen,
+        | GameScreen::StaffTalk
+        | GameScreen::SpaceLocal => GameScreen::MainScreen,
+        GameScreen::PubTalk => GameScreen::SpaceLocal,
         GameScreen::ResourceMine => GameScreen::PlanetMain,
         GameScreen::Colonize => GameScreen::PlanetInfo,
         GameScreen::CreateUnit
         | GameScreen::Group
         | GameScreen::ControlPanel
         | GameScreen::Transfer => GameScreen::ShipInfo,
-        GameScreen::MainMenu | GameScreen::MainScreen | GameScreen::SpaceBattle => return,
+        GameScreen::MainMenu
+        | GameScreen::MainScreen
+        | GameScreen::SpaceBattle
+        | GameScreen::StoryScene
+        | GameScreen::GroundSetup
+        | GameScreen::GroundWar
+        | GameScreen::GameEnd
+        | GameScreen::AlienTalk => return,
     };
     commands.trigger(GoTo(previous));
 }

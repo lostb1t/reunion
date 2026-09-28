@@ -1,6 +1,7 @@
 // Bevy systems routinely take many parameters and nested query types.
 #![allow(clippy::too_many_arguments, clippy::type_complexity)]
 
+mod alien_talk;
 mod autopilot;
 mod clock;
 mod colonize;
@@ -14,6 +15,7 @@ mod galactic_map;
 mod game;
 mod game_data;
 mod group;
+mod ground_war;
 mod hero;
 mod hud;
 mod info_buy;
@@ -29,8 +31,10 @@ mod planet_info;
 mod popup;
 mod research;
 mod resource_mine;
+mod pub_local;
 mod screen;
 mod space_battle;
+mod story;
 mod ship_info;
 mod staff_talk;
 mod text;
@@ -114,6 +118,12 @@ fn main() {
             resource_mine::ResourceMinePlugin,
             colonize::ColonizePlugin,
             space_battle::SpaceBattlePlugin,
+        ))
+        .add_plugins((
+            story::StoryPlugin,
+            alien_talk::AlienTalkPlugin,
+            pub_local::PubPlugin,
+            ground_war::GroundWarPlugin,
         ))
         .run();
 }

@@ -19,8 +19,14 @@
 //! - `message <text>` / `alert <text>` - add a normal / highlighted message
 //!   to the log, like the game does
 //! - `hours <n>` - let n game hours pass at once (message boxes queue up)
+//! - `troops <system> <planet> <moon> <troopers> <tanks>` - a new army group
+//!   on the ground there
+//! - `ground <system> <planet> <moon> <race>` - a ground war there, against
+//!   that race
 //! - `army <system> <planet> <moon> <n>` - a new army group in orbit there
 //!   with n hunters and lasers
+//! - `talk <n>` / `scene <n>` - start a conversation with aliens / show a
+//!   story picture, as the story does
 //! - `wait <seconds>`
 //! - `shot <name>` - saves `<dir>/<name>.png`
 //!
@@ -122,6 +128,7 @@ fn screen_named(name: &str) -> Option<GameScreen> {
         "group" => GameScreen::Group,
         "info" => GameScreen::InfoBuy,
         "mine" => GameScreen::ResourceMine,
+        "pub" => GameScreen::SpaceLocal,
         "cockpit" => GameScreen::ControlPanel,
         "transfer" => GameScreen::Transfer,
         _ => return None,
@@ -219,6 +226,41 @@ fn run(
                 (g[0x13], g[0x14], g[0x15], g[0x16]) = (*s, *p, *m, 2);
                 g[0x1d..0x1f].copy_from_slice(&u16::from(*hunters).to_le_bytes());
                 g[0x1f..0x21].copy_from_slice(&u16::from(*hunters).to_le_bytes());
+            }
+        }
+        "talk" | "scene" => {
+            let n = arg.parse().unwrap_or(2);
+            let event = if command == "talk" {
+                reunion_formats::story::Event::Talk(n)
+            } else {
+                reunion_formats::story::Event::Scene(n)
+            };
+            commands.trigger(crate::story::Tell(event));
+        }
+        "troops" => {
+            let v: Vec<u8> = arg.split_whitespace().filter_map(|n| n.parse().ok()).collect();
+            let (Some(game), [s, p, m, troopers, tanks, ..]) = (game.as_mut(), v.as_slice()) else {
+                error!("autopilot: troops needs system planet moon troopers tanks");
+                return;
+            };
+            let Some(n) = game.0.add_group() else { return };
+            if let Some(g) = game.0.unit_mut(reunion_formats::state::UnitList::Groups, n) {
+                (g[0x13], g[0x14], g[0x15], g[0x16]) = (*s, *p, *m, 1);
+                for (k, count) in [(0, *troopers), (1, *tanks)] {
+                    let at = 0x45 + 10 * k;
+                    g[at..at + 2].copy_from_slice(&u16::from(count).to_le_bytes());
+                    g[at + 2..at + 4].copy_from_slice(&u16::from(count).to_le_bytes());
+                }
+            }
+        }
+        "ground" => {
+            let v: Vec<u8> = arg.split_whitespace().filter_map(|n| n.parse().ok()).collect();
+            if let [s, p, m, race, ..] = v.as_slice() {
+                if let Some(game) = game.as_mut() {
+                    game.0.set_standing(*race, reunion_formats::aliens::AT_WAR);
+                }
+                commands.insert_resource(crate::space_battle::BattleStart { place: (*s, *p, *m), you_attack: true, ground: true });
+                commands.trigger(GoTo(GameScreen::GroundSetup));
             }
         }
         "hours" => {

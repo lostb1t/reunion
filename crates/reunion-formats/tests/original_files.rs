@@ -257,7 +257,7 @@ fn simulation_runs_for_months() {
     println!("money {money} -> {}, people {people} -> {}", state.money(), pop(&state));
     println!("mine left {}", state.buildings()[n - 1][6]);
     for r in &reports {
-        println!("{r}");
+        println!("{r:?}");
     }
     assert_eq!(state.buildings()[n - 1][6], 0, "the mine got built");
     assert!(state.money() > money, "taxes came in");
@@ -303,4 +303,80 @@ fn space_battle_runs_to_the_end() {
     println!("won {} in {frames} frames, losses {losses:?}", battle.won());
     let left = i16::from_le_bytes(state.unit(UnitList::Groups, n).unwrap()[0x1d..0x1f].try_into().unwrap());
     assert_eq!(i64::from(left) + i64::from(losses[0][0]), 40);
+}
+
+#[test]
+fn ground_battle_runs_to_the_end() {
+    use reunion_formats::{ground::GroundBattle, state::UnitList};
+    let (Some(prg), Some(init)) = (game_file("GRWAR/REUNION.PRG"), game_file("SAVE/INIT")) else {
+        return;
+    };
+    let exe = GameExe::parse(prg).unwrap();
+    let mut state = GameState::new_game(&exe, &init, 5).unwrap();
+    let n = state.add_group().unwrap();
+    let group = state.unit_mut(UnitList::Groups, n).unwrap();
+    (group[0x13], group[0x14], group[0x15], group[0x16]) = (1, 7, 0, 1);
+    for (k, count) in [(0, 60i16), (1, 20)] {
+        let at = 0x45 + 10 * k;
+        group[at..at + 2].copy_from_slice(&count.to_le_bytes());
+        group[at + 2..at + 4].copy_from_slice(&count.to_le_bytes());
+    }
+    state.set_standing(2, reunion_formats::aliens::AT_WAR);
+    let mut battle = GroundBattle::new(&state, &exe, (1, 7, 0), true);
+    println!("forces {:?}", battle.forces);
+    assert!(!battle.units[0].is_empty());
+    battle.deploy();
+    let mut seed = 7u32;
+    let mut random = |n: u16| {
+        seed = seed.wrapping_mul(0x0808_8405).wrapping_add(1);
+        ((u64::from(seed) * u64::from(n)) >> 32) as u16
+    };
+    for i in 0..battle.units[0].len() {
+        if let Some(t) = (0..battle.units[1].len()).next() {
+            battle.order_attack(i, t);
+        }
+    }
+    let mut frames = 0;
+    while !battle.over && frames < 100_000 {
+        battle.frame(false, &mut random);
+        frames += 1;
+    }
+    println!("over {} after {frames}: won {}", battle.over, battle.won());
+    assert!(battle.over);
+    let losses = battle.finish(&mut state, &exe);
+    println!("losses {losses:?}");
+}
+
+#[test]
+fn long_game_runs() {
+    use reunion_formats::sim::Texts;
+    let (Some(prg), Some(init), Some(messages), Some(kitalal)) = (
+        game_file("GRWAR/REUNION.PRG"),
+        game_file("SAVE/INIT"),
+        game_file("TEXT/MESSAGE.TXT"),
+        game_file("TEXT/KITALAL.TXT"),
+    ) else {
+        return;
+    };
+    let exe = GameExe::parse(prg).unwrap();
+    let texts = Texts::parse(&messages, &kitalal);
+    let mut state = GameState::new_game(&exe, &init, 11).unwrap();
+    // Hire everyone well, so the story moves.
+    for (at, v) in [(0x95b6u16, 3u16), (0x95b8, 3), (0x95ba, 3), (0x95bc, 3), (0x95a4, 80), (0x95a6, 80), (0x95a8, 80), (0x95aa, 80)] {
+        state.set_word(at, v);
+    }
+    let mut seed = 1u32;
+    let mut random = |n: u16| {
+        seed = seed.wrapping_mul(0x0808_8405).wrapping_add(1);
+        ((u64::from(seed) * u64::from(n)) >> 32) as u16
+    };
+    let mut events = 0;
+    for _ in 0..20_000 {
+        state.advance_hour();
+        events += state.simulate_hour(&exe, &texts, &mut random).len();
+        state.travel_hour();
+        let (e, _) = state.aliens_hour(&exe, &texts, &mut random);
+        events += e.len();
+    }
+    println!("{events} events, money {}", state.money());
 }

@@ -79,6 +79,11 @@ pub fn pass_hour(game: &mut Game, data: &GameData, commands: &mut Commands) -> b
             }
         }
     }
+    // FUN_1b8a_006e: the people of the pub.
+    for event in game.0.pub_hour(&data.exe, &data.sim_texts) {
+        commands.trigger(Tell(event));
+        shown = true;
+    }
     // FUN_1b8a_3546: the aliens.
     let (reports, attack) = game.0.aliens_hour(&data.exe, &data.sim_texts, &mut random);
     for event in reports {

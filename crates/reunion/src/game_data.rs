@@ -71,6 +71,9 @@ pub struct GameData {
     /// VALASZ<n>.AT answers), conversation n at index n; empty where the
     /// game has none.
     pub alien_talks: Vec<(Vec<String>, Vec<String>)>,
+    /// Talks in the pub (TEXT/KERDES<n>.LOC and VALASZ<n>.LOC), person n at
+    /// index n.
+    pub pub_talks: Vec<(Vec<String>, Vec<String>)>,
     /// Per invention, INFO-BUY's title and six lines (TEXT/SZ_TALAL.RAW:
     /// 31-byte Pascal strings).
     pub descriptions: Vec<[String; 7]>,
@@ -233,6 +236,22 @@ impl AssetLoader for GameDataLoader {
         for (questions, answers) in ALIEN_TALKS {
             alien_talks.push((text_lines(questions).await.unwrap_or_default(), text_lines(answers).await.unwrap_or_default()));
         }
+        const PUB_TALKS: [(&str, &str); 10] = [
+            ("TEXT/KERDES1.LOC", "TEXT/VALASZ1.LOC"),
+            ("TEXT/KERDES2.LOC", "TEXT/VALASZ2.LOC"),
+            ("TEXT/KERDES3.LOC", "TEXT/VALASZ3.LOC"),
+            ("TEXT/KERDES4.LOC", "TEXT/VALASZ4.LOC"),
+            ("TEXT/KERDES5.LOC", "TEXT/VALASZ5.LOC"),
+            ("TEXT/KERDES6.LOC", "TEXT/VALASZ6.LOC"),
+            ("TEXT/KERDES7.LOC", "TEXT/VALASZ7.LOC"),
+            ("TEXT/KERDES8.LOC", "TEXT/VALASZ8.LOC"),
+            ("TEXT/KERDES9.LOC", "TEXT/VALASZ9.LOC"),
+            ("TEXT/KERDES10.LOC", "TEXT/VALASZ10.LOC"),
+        ];
+        let mut pub_talks = vec![(Vec::new(), Vec::new())];
+        for (questions, answers) in PUB_TALKS {
+            pub_talks.push((text_lines(questions).await.unwrap_or_default(), text_lines(answers).await.unwrap_or_default()));
+        }
         let talk = StaffTalkTexts {
             questions: text_lines("TEXT/KERDES1.SP").await?,
             short_questions: text_lines("TEXT/RKERDES1.SP").await?,
@@ -296,6 +315,7 @@ impl AssetLoader for GameDataLoader {
         Ok(GameData {
             talk,
             alien_talks,
+            pub_talks,
             descriptions,
             unit_categories,
             satellites,
@@ -440,8 +460,12 @@ mod tests {
             .get(&world.resource::<GameDataHandle>().0)
             .unwrap();
         let images = world.resource::<Assets<Image>>();
-        // Every in-game screen has its icon bar set (PLANET MAIN is screen 20).
+        // Every in-game screen has its icon bar set (PLANET MAIN is screen 20),
+        // except the conversations with aliens, which have none.
         for screen in crate::screen::GameScreen::IN_GAME {
+            if matches!(screen, crate::screen::GameScreen::AlienTalk | crate::screen::GameScreen::PubTalk) {
+                continue;
+            }
             let set = &data.icon_sets[screen.number().unwrap() as usize];
             assert!(!set.is_empty(), "{screen:?} has no icon bar set");
         }

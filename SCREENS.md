@@ -24,20 +24,22 @@ Every screen of the original, from the screen table in `REUNION.PRG`
 | 16 | Ship info | SHIP INFO | BACK (+ CONTROL PANEL, GROUP, NEW UNIT, TRANSFER, PLANET MAIN) | Done: groups / bases, details, NEW UNIT |
 | 17 | Control panel | CONTROL PANEL | BACK, SHIP INFO, GROUP | Done: launch / dock, move; cockpit animations and docking story events missing |
 | 18 | Ship moving | internal | ABORT MOVE | Done (destination picking on the galactic map; travel over time) |
-| 19 | Ground war set-up | internal | OK, ATTACK, CANCEL ATTACK, ADD ... UNIT | Next: dividing the ground forces into units |
-| 20 | Planet main (surface) | PLANET MAIN | BACK, GALACTIC MAP, PLANET INFO, SPACEPORT | Done: buildings (scaffolding while built), building / demolishing, building info, the colony model; buildings of a colony being set up find their place here. Radar minimap missing |
+| 19 | Ground war set-up | internal | OK, ATTACK, CANCEL ATTACK, ADD ... UNIT | Done: the units, removing / resizing, adding from what's left |
+| 20 | Planet main (surface) | PLANET MAIN | BACK, GALACTIC MAP, PLANET INFO, SPACEPORT | Done: buildings (scaffolding while built), building / demolishing, building info, the colony model, the radar map; buildings of a colony being set up find their place here |
 | 21 | New unit | internal | OK CREATE IT, ABORT | Done (name typing, type) |
 | 22 | Group | GROUP | BACK, SHIP INFO (+ CONTROL PANEL, TRANSFER, GALACTIC MAP, PLANET MAIN, DISBAND UNIT) | Done: loading ships, troops and equipment from stock |
-| 23 | Space local (the space station's pub) | SPACE LOCAL | BACK | Next: characters and talks (story) |
+| 23 | Space local (the space station's pub) | SPACE LOCAL | BACK | Done: the people there (KOCSMA, PIRATES) |
 | 24 | internal | internal | BACK | Staff talk (DUMA): done |
-| 25-27 | internal | internal | - | |
+| 25 | Talking in the pub | internal | END TALK | Done: talks (KERDES/VALASZ .LOC), where they start, what lines do; the people's missions (hired spies, expeditions) not yet |
+| 26-27 | internal | internal | - | |
 | 28 | Colonization | internal | OK BUILD IT, ABORT | Done: the six starting buildings, cost, founding the colony and its base |
 | 29 | Space battle | internal | RETREAT | Done: the battle (ships, paths, fire, explosions), retreat, the aftermath; commander face animations on the right missing |
 | 30 | Battle end | internal | END BATTLE | Done (victory / defeat with losses, part of 29) |
 | 31 | internal | internal | - | |
-| 32 | Ground war | internal | RETREAT | Next: the tactical ground battle (segment 0x1537) |
-| 33 | internal | internal | BACK | |
-| 34-36 | internal | internal | - | |
+| 32 | Ground war | internal | RETREAT | Done: the battle (moving, attacking, rockets, explosions), result, the aftermath (conquest, capitals, losing New Earth, winning); the colony's own guns and some sounds not yet |
+| 33 | Story picture | internal | BACK | Done (PICS/PIC<n>; no music) |
+| 34 | Talking with aliens | internal | - | Done: the conversations and what they change |
+| 35-36 | Game over / victory | internal | - | Done (GRAFIKA/DEATHSZ1, VICTORY/END; the death animation and the victory program not yet) |
 | 37 | Main computer | MAIN COMPUTER | BACK, YOUR PLANETS, USEFUL PLANETS, ALIEN PLANETS | Done (scroll bar not drawn; scroll with the right stick) |
 | 38 | Start-up load | internal | LOAD, EXIT TO DOS | Done |
 
@@ -56,5 +58,9 @@ midnight every colony's people, morale, taxes and troubles (disease,
 radiation, meteorites, revolts), satellite observation and planets found by
 observatories. Aliens: first contact (each race decides on war or
 friendship), fleets moving and attacking on their timers, battles and their
-aftermath. Not yet: the ground war, most of the story's own timers, and
-the story scenes they start.
+aftermath. The story's timeline (reunion-formats/src/story.rs): the
+Jaanosians' calls and fall, the Morgrul invasions, the Kalls, the Antares
+supernova, the League's and the Earthlings' attacks, with the story
+pictures and conversations they bring. The pub people's missions (the
+Stranger's spying, the Eran, the bounty hunter). Not yet: the pub pilot's
+trade flights, sound and music.

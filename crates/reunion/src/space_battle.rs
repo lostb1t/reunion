@@ -285,13 +285,13 @@ fn act(
                 game.0.start_invention_timer(17, 50, 90, &mut random);
             }
             // The fight for the ground (screens 19 and 32) comes after a
-            // won attack or a lost defence against an invasion; it isn't
-            // there yet, so the game goes on at the map.
-            let ground_next = fight.start.ground && (won == fight.start.you_attack);
-            if ground_next {
-                info!("ground battle at {place:?} skipped");
+            // won attack or a lost defence against an invasion.
+            if fight.start.ground && (won == fight.start.you_attack) {
+                commands.insert_resource(fight.start);
+                commands.trigger(GoTo(GameScreen::GroundSetup));
+            } else {
+                commands.trigger(GoTo(GameScreen::GalacticMap));
             }
-            commands.trigger(GoTo(GameScreen::GalacticMap));
         }
         _ => {}
     }

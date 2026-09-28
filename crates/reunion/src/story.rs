@@ -49,6 +49,11 @@ pub struct Showing(pub u8);
 fn queue(tell: On<Tell>, mut queue: ResMut<StoryQueue>, mut commands: Commands) {
     match &tell.0 {
         Event::Message(text) => commands.trigger(ShowMessage { text: text.clone(), log: true }),
+        // The Morgruls' call opens with picture 10.
+        Event::Talk(6) => {
+            queue.0.push_back(Event::Scene(10));
+            queue.0.push_back(Event::Talk(6));
+        }
         other => queue.0.push_back(other.clone()),
     }
 }
@@ -67,7 +72,11 @@ fn play(
         screen.get(),
         GameScreen::StoryScene
             | GameScreen::AlienTalk
+            | GameScreen::PubTalk
             | GameScreen::SpaceBattle
+            | GameScreen::GroundSetup
+            | GameScreen::GroundWar
+            | GameScreen::GameEnd
             | GameScreen::Colonize
             | GameScreen::CreateUnit
             | GameScreen::DiskOperations

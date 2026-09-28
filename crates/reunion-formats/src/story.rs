@@ -113,6 +113,11 @@ impl GameState {
         self.set_byte(at + 0x26, 0);
     }
 
+    /// FUN_29b9_0fe4 for the ground war.
+    pub(crate) fn destroy_race_public(&mut self, exe: &GameExe, race: u8) {
+        self.destroy_race(exe, race);
+    }
+
     /// Every planet and moon of every system: (system, body).
     fn all_places(&self, exe: &GameExe) -> Vec<(u8, usize)> {
         let Ok(systems) = exe.star_systems() else { return Vec::new() };
@@ -475,11 +480,9 @@ impl GameState {
                 self.set_word(0x5d7a, 0);
                 self.move_fleet(FleetId { race: 4, number: 2 }, (3, 3, 0), random);
             }
-            (6, 5) => {
-                if !self.flag(0x5d74) && self.story_word(0x5d72) > 0 {
-                    let v = self.story_word(0x5d72) + 250;
-                    self.set_word(0x5d72, v as u16);
-                }
+            (6, 5) if !self.flag(0x5d74) && self.story_word(0x5d72) > 0 => {
+                let v = self.story_word(0x5d72) + 250;
+                self.set_word(0x5d72, v as u16);
             }
             (7, 5 | 8) => {
                 let sold = energon(self).min(10_000);
