@@ -37,6 +37,8 @@
         0%, 100% { opacity: 0.15; }
         40% { opacity: 1; box-shadow: 0 0 8px #e0d000; }
       }
+      #loading .prompt { font-size: 0.8rem; animation: pulse 1.6s ease-in-out infinite; cursor: pointer; }
+      #loading:not(.loading) .dots, #loading.loading .prompt { display: none; }
       #loading .error { color: #e74518; letter-spacing: 0.1em; text-transform: none; font-size: 0.8rem; }
     </style>
   </head>
@@ -45,12 +47,21 @@
     <canvas id="bevy" tabindex="0" oncontextmenu="return false"></canvas>
     <div id="loading">
       <h1>Reunion</h1>
+      <div class="prompt">Click to start</div>
       <div class="dots"><span></span><span></span><span></span></div>
     </div>
     <script type="module">
       import init from "./reunion.js";
 
       const loading = document.getElementById("loading");
+      // Browsers only allow sound after a click or key press, and the
+      // cutscenes follow their music: start the game on one.
+      await new Promise((resolve) => {
+        for (const event of ["pointerdown", "keydown", "touchstart"]) {
+          addEventListener(event, resolve, { once: true });
+        }
+      });
+      loading.classList.add("loading");
       try {
         // The game starts when init has downloaded and compiled it; the
         // overlay fades a moment after.

@@ -375,6 +375,11 @@ struct Runner {
     anim: Option<Handle<Animation>>,
     anim_frame: usize,
     music: Option<Handle<Music>>,
+    /// Seconds since the music started, and when its position last moved:
+    /// if it stops moving (no sound yet, e.g. in a browser before a click),
+    /// the waits go by the clock instead.
+    music_clock: f64,
+    music_moved: (Option<(usize, usize)>, f64),
     pictures: HashMap<String, Handle<IndexedPic>>,
     animations: HashMap<String, Handle<Animation>>,
     image: Handle<Image>,
@@ -433,6 +438,8 @@ impl Runner {
             anim: None,
             anim_frame: 0,
             music: None,
+            music_clock: 0.0,
+            music_moved: (None, 0.0),
             pictures,
             animations,
             image,
@@ -552,6 +559,7 @@ fn run(
     let dt = time.delta_secs_f64();
     r.frames = (r.frames + dt * VGA_HZ).min(8.0);
     r.clock += dt * 1000.0;
+    r.music_clock += dt;
     // A new request (even while one plays), or the first script.
     if (cutscenes.is_added() || r.ops.is_empty()) && !cutscenes.scripts.is_empty() {
         commands.trigger(StopMusic);
@@ -586,15 +594,28 @@ fn run(
             Op::Music(path) => {
                 commands.trigger(PlayMusic { path: path.clone(), looping: false });
                 r.music = Some(server.load(path));
+                r.music_clock = 0.0;
+                r.music_moved = (None, 0.0);
             }
             Op::WaitMusic { row, order } => {
                 // Until the song has got there (or is over, or not playing).
                 let playing = voices.iter().next().is_some();
                 let position = r.music.as_ref().and_then(|h| musics.get(h)).map(|m| m.position());
+                if let Some(Some(p)) = position
+                    && r.music_moved.0 != Some(p)
+                {
+                    r.music_moved = (Some(p), r.music_clock);
+                }
+                // Not moving for a while: where it would be at the modules'
+                // usual speed (6 ticks of 20 ms a row, 64 rows an order).
+                let stalled = r.music_clock - r.music_moved.1 > 1.5;
+                let rows = (r.music_clock / 0.12) as usize;
+                let estimate = (rows / 64, rows % 64);
+                let reached = |(o, rw): (usize, usize)| (o + 1, rw + 1) >= (usize::from(order), usize::from(row));
                 done = match position {
-                    Some(Some((o, rw))) => (o + 1, rw + 1) >= (usize::from(order), usize::from(row)) || !playing,
+                    Some(Some(p)) => reached(p) || !playing || (stalled && reached(estimate)),
                     Some(None) => true,
-                    None => r.music.is_none(),
+                    None => r.music.is_none() || (stalled && reached(estimate)),
                 };
                 if !done {
                     r.frames = r.frames.min(1.0);
