@@ -1,8 +1,9 @@
 # Native builds on every push to main, published to a single rolling
-# release ("latest") whose files are replaced each time.
+# release ("latest") whose files are replaced each time, and the web build
+# on GitHub Pages.
 #
-# The builds contain no game data: put your own copy of Reunion's files in an
-# `assets` folder next to the executable.
+# The builds include the original game's files (game/) as `assets` next to
+# the executable, which is where the game looks for them.
 
 name: Release
 
@@ -13,6 +14,8 @@ on:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
 
 concurrency:
   group: release
@@ -55,15 +58,15 @@ jobs:
         shell: bash
         run: |
           dir=reunion-${{ matrix.name }}
-          mkdir -p "$dir/assets"
+          mkdir -p "$dir"
           cp "target/release/${{ matrix.exe }}" "$dir/"
+          cp -r game "$dir/assets"
           cp -r crates/reunion/art "$dir/art"
           cat > "$dir/README.txt" <<'EOF'
           Reunion (1994), rewritten: https://github.com/lostb1t/reunion
 
-          This build contains no game data. Copy the files of your own copy of
-          Reunion (the folders GRAFIKA, SOUND, INTRO, ... and GRWAR) into the
-          `assets` folder next to the executable, then run it.
+          Run the executable. The original game's files are in `assets`, where
+          your saved games go too (assets/SAVE).
           EOF
           if [ "${{ runner.os }}" = "Windows" ]; then
             7z a "$dir.zip" "$dir" > /dev/null
@@ -94,10 +97,54 @@ jobs:
           # The tag follows main; the release keeps its URL and gets the new files.
           git tag -f latest
           git push -f origin latest
-          notes="Latest build of main ($(git rev-parse --short HEAD)). Needs your own copy of the game's files in the \`assets\` folder."
+          notes="Latest build of main ($(git rev-parse --short HEAD))."
           if gh release view latest > /dev/null 2>&1; then
             gh release edit latest --title "Latest build" --notes "$notes"
           else
             gh release create latest --title "Latest build" --notes "$notes"
           fi
           gh release upload latest dist/*.zip --clobber
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: wasm-bindgen, the version in Cargo.lock
+        run: |
+          version=$(grep -A1 '^name = "wasm-bindgen"$' Cargo.lock | sed -n 's/version = "\(.*\)"/\1/p')
+          echo "WASM_BINDGEN=$version" >> "$GITHUB_ENV"
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-bindgen@${{ env.WASM_BINDGEN }}
+
+      - name: Build
+        run: |
+          cargo build -p reunion --profile wasm-release --target wasm32-unknown-unknown
+          mkdir -p site
+          wasm-bindgen --target web --no-typescript --out-name reunion --out-dir site \
+            target/wasm32-unknown-unknown/wasm-release/reunion.wasm
+          cp web/index.html site/
+          cp -r game site/assets
+          cp -r crates/reunion/art site/art
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  pages:
+    needs: web
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4

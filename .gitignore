@@ -1,6 +1,13 @@
-# Original game data and anything derived from it — not ours to publish.
+# The original game's files are in game/ (the builds ship them), except the
+# crack, the archives, DOS helpers and save games.
+/game/CRACK/
+/game/*.zip
+/game/*.COM
+/game/JS_RETRN.EXE
+/game/SAVE/SPIDYSAV.*
+
+# The original download and anything derived from the game — not needed here.
 /Reunion_DOS_EN.zip
-/game/
 /docs/
 /extracted/
 /ghidra/

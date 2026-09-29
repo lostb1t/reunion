@@ -1,0 +1,1172 @@
+REUNION INSTALLATION AND SETUP
+Language:
+
+This CD-ROM may contain several versions of the game in different 
+languages. Therefore the loading instruction for each language version are 
+given in this guide. This does not mean that the CD-ROM included in this 
+package contains all the language versions of the game.
+
+You are able to install this program two ways
+1.	Play from the Hard Drive.
+2.	Play from the CD-ROM.
+
+Hard Drive Installation:
+
+Hard Disks are faster than CD-ROM and therefore Reunion will operate 
+faster when installed on a hard disk. This is noticeable in certain sections 
+of Reunion which requires lots of  disk access. Example: The battle 
+sequences. Increasing the amount of buffers used by your CD driver, or 
+using a CD cache, can improve the speed at which your CD operates. 
+Consult your CD- Rom documentation for more details on adding extra 
+buffers. Installation requires 23 Megabytes of free disk space. If you do not 
+have a double speed CD-ROM drive [ a transfer rate of 300Kb per second 
+], Hard Drive installation is recommended.
+
+To install the English version, type INSTALL E [hard disk]. Example:     
+INSTALL E C:  [enter]
+To install the German version, type INSTALL D [hard disk]. Example:    
+INSTALL D C:  [enter]
+To install the French version, type INSTALL F [hard disk]. Example:      
+INSTALL F C:  [enter]
+To install the English version, type INSTALL I [hard disk]. Example:      
+INSTALL I C:  [enter]
+
+CD-ROM Installation:
+
+There is no installation necessary to play off the CD-ROM. You will need 
+to configure the sound setup before you begin game play..
+Access your CD-ROM by placing the disk in your CD-ROM drive and log 
+on to the drive. Example: D:[enter]
+
+Sound Configuration:
+To access the English Setup Screen, type:
+SETUP E   [ Your hard drive] [enter]    Example SETUP E C:
+
+Starting The Game
+Log onto your CD-ROM by typing the drive letter followed by a colon. 
+Example:  D: [enter]
+Make sure that you have correctly configured your sound card, then type 
+the following line.
+
+START E [enter] to load the English version.
+
+Troubleshooting 
+
+Installation Problems
+
+Q.	I cannot install the game onto my hard disk.
+
+A.	Do you have enough hard disk space? You need at least "22" 
+Megabytes of free disk space for the game to be fully installed. If the game 
+installs part-way then halts, this is the most likely problem. Run CHKDSK, 
+a program that comes with MS-DOS. This will tell you how much space 
+you have free on your hard drive. The figure must be greater than 
+"22771706" bytes free.
+ 
+Please note:	Merit does not advocate or support the use of hard disk 
+compression utilities.
+ 
+Other possible causes are corrupt disks, in which case telephone the Merit 
+helpline for advice.
+
+
+Memory Problems
+
+Q.	I cannot free enough memory to run the game.
+
+A.	Edit your Config.sys and Autoexec.bat files so they are the same 
+as those in the "Memory Configuration" section of the manual. Remember, 
+every extra program loaded by the Config.sys or Autoexec.bat files will use 
+extra memory. If there is less than 586K (600,000 bytes) free, Reunion will 
+not run.
+
+If you are loading programs into the higher memory area (using the 
+devicehigh or loadhigh command), you may need to configure more 
+Expanded memory. This requires you to have more memory installed in 
+your machine. See your MS-DOS manual for more information about 
+expanded memory. 
+
+If you do not want to re-configure your normal setup, make a system disk 
+(see the "Managing Disks" section of your MS-DOS manual for details) 
+and copy the Config.sys file and Autoexec.bat file onto this disk. Using the 
+EDIT program supplied with MS-DOS, edit the files so they are the same 
+as those in the "Memory Configuration" section of this manual. 
+Alternatively, if you use MS-DOS 6, use the multiple configuration utility.
+
+Sound Problems
+
+Q.	There is no sound during the entire game.
+
+A.	You have not configured your sound card correctly, Reunion is 
+incompatible with your sound card or you do not own a sound card. 
+
+Reunion only supports Soundblaster, Soundblaster Pro and Gravis 
+Ultrasound sound cards. If you do not own one of these cards or a 
+"compatible" card,  you will not hear any sound during the game (Reunion 
+will not work with Roland cards, for example). Reunion does not support 
+"PC Speaker" sound, therefore, you need a sound card to get any sort of 
+sound out of the game. Please read your sound card manual to find the 
+correct settings for your sound card or look for the SET BLASTER= line in 
+your Autoexec.bat file. Make sure this line is included in your Autoexec.bat 
+file. Your Soundblaster MUST be configured to DMA 1. Other values will 
+not work.
+
+Q.	I cannot here any digitized sound such as speech and effects 
+during the game, only music.
+
+A.	You have incorrectly configured the IRQ number in the SETUP 
+program. For most Soundblaster cards the IRQ number is usually 7 or 5. If 
+you have chosen 7, change to 5 and vice versa. If this does not work, 
+consult your Soundblaster manual for more details or look at the SET 
+BLASTER= line in your Autoexec.bat file.
+
+Q.	I own a Gravis Ultrasound and the speech is garbled during the 
+introduction.
+
+A.	You need 512K of on-board RAM to hear the introduction speech 
+on a Gravis Ultrasound. See the "Sound Configuration" section of the 
+manual for more details.
+
+Q.	What ever I try, SETUP will not recognize my sound card.
+
+A.	Reunion supports Soundblaster, Soundblaster Pro and Gravis 
+Ultrasound sound cards. Some sound cards claim compatibility with 
+Soundblaster and Reunion has been tested with several of these boards. 
+However, Merit only claims compatibility or accurate sound reproduction 
+on Soundblaster, Soundblaster Pro and Gravis Ultrasound cards. 
+
+Some sound cards require certain configuration programs to be loaded to 
+emulate Soundblaster. These require memory. You may have to configure 
+more expanded memory and / or load these programs into the upper 
+memory area for Reunion to work with these sound cards.
+
+If you do not own a Soundblaster compatible card or a Gravis Ultrasound 
+card, you will not be able to configure your sound card.
+	
+Q.	The introduction does not sound very good.
+
+A.	The introduction utilizes very complex music and speech. If you 
+have a Gravis Ultrasound with 512K on board, you will obtain the best 
+sound reproduction. If you have a Soundblaster or Compatible card, 
+reproduction quality is based mainly around the speed of your machine. 
+The faster the machine, the better the sound quality should be. 
+Soundblaster Pro should also produce a slightly clearer sound than a 
+regular Soundblaster.
+
+
+New Earth Governmental Information 
+Department
+
+Internal Memorandum
+
+To:  The President of the New Earth Colony
+From:  The Colony Central Computer
+Date: 7/15/2927
+Subject:  Congratulations on your new appointment!
+
+Constitutional law dictates that I am required to supply you 
+with the information contained in this book.  As a respected 
+states person you should (of course)  be aware of most of the 
+facts presented.  In the event that your memory is a little rusty, 
+this book will provide a sufficient refresher and/or point of 
+reference.
+
+Another feature of the compendium is a comprehensive guide to 
+my higher functions, which are restricted from normal users.  It 
+is recommended that you familiarize yourself with these 
+functions before you officially take office in one months time.
+
+I wish you every success with the Reunion initiative.
+
+Yours most faithfully,
+
+The Colony Central Computer System
+
+
+Foundation of the New Earth Colony
+Chronology of Important Events
+
+Late 20th Century - Old Earth:
+	The Collapse of Earth's Biosphere begins.  
+Uncoordinated measures to slow down the collapse are 
+implemented with negligible success.
+
+2048:
+	Earth's Biosphere is highly damaged.  Some areas of its 
+surface are subject to dangerous levels of radiation.  United 
+Nations members agree to devote all resources into saving the 
+planet.  As a result, the populous is angered by the loss of self 
+determination.  There are major acts of civil unrest in member 
+countries.
+
+2057:
+	Renegade ministers, backed by several influential 
+corporations, try to seize power in a coup.  Several Ministers 
+are imprisoned.  The corporations are dissolved and all their 
+facilities are commandeered by the UN.
+
+Late 21st Century:
+	Most Earth nations are now actively involved in the UN. 
+initiative.
+
+2109:
+	Helped by the release of an artificially produced "ozone 
+replacement" the holes in the ozone layer begin to get smaller.
+
+2109 - 2502:
+	The Earth enjoys a period of prosperity and peace.  All 
+weapons are abolished, humanitarian and ecological problems 
+are gradually eliminated.  Any nation showing aggressive 
+tendencies is dealt with swiftly by UN. Military forces.  
+	Eventually the Earth is a conflict free zone.  In this 
+enlightened atmosphere of unity scientific progress accelerates.
+	
+2563:
+	Over 50 years of dedicated research comes to fruition 
+when the UN. nuclear research laboratories successfully 
+combine elements of Einstein's Unified Field Theory with anti-
+matter physics, creating a new form of spacecraft propulsion.  
+	The new form of power can literally "warp" the fabric of 
+space and therefore bring points within it closer together.  This 
+makes travel between Solar Systems in a relatively short time 
+period a distinct reality.
+
+2568:
+	After a six month voyage, the probe "Hermes" reaches 
+the star Proxima Centauri, becoming the first man made object 
+to reach another star system.  The relative speed obtained is 
+nearly eight times the speed of light.
+2575:
+	Two fully equipped research ships leave Earth.  Their 
+brief is to find other Earth type planets suitable for colonization.
+Each ship is sent to a different initial destination and carries a 
+crew of 1500 people.
+
+2589:
+	After 14 years of exploration a mayday call reached 
+Earth from "Explorer 1".  The last recorded transmission 
+received was as follows:  "Something approaching at incredible 
+speed...It's huge, spherical, glowing...My God, it..."
+
+	There is still no farther understanding of this message 
+and the crew of Explorer 1 are listed as "Missing, presumed 
+dead"
+
+2609:
+	Explorer 2 completed her mission successfully, returning 
+to Earth after locating several habitable planets in a distant but 
+reachable section of the galaxy.
+
+2615:
+	Explorer 2 is refitted in space dock and made ready to 
+travel back to the new planets.
+
+2616:
+	A strange uprising begins on Earth.  People are 
+becoming hostile and overthrowing the establishment.  A 
+bloody conflict ensues in which the growing number of rebels 
+are victorious.  The last order of the old regime was the 
+emergency departure clearance for Explorer 2.
+
+	Explorer 2 leaves the Sol system behind and heads for 
+the new planets.  The new launch window causes the ship to 
+pass through an uncharted asteroid field on its voyage.  There is 
+damage to the warp field generators.
+
+2621:
+	Explorer 2 arrives at the new solar system.  The stress 
+of deceleration causes the warp generators to explode.  The 
+crew escape using safety pods.  Most do not make it to the 
+New Earth.
+
+	New Earth Colony is formed and the struggle for 
+survival begins.
+
+Present Day Situation.  Star Date 2927:
+
+	New Earth is now a thriving community, self sufficient, 
+stable, and free from conflict and disease.  The Colony's day to 
+day survival is no longer an issue for concern, and our eyes are 
+once again turning outward to the stars.  Many unanswered 
+questions exist concerning the galaxy:  Is there life on other 
+worlds?  Can we colonize other planets in our star system?  
+What is the current state of affairs on the Old Earth?  What has 
+happened since we left there, or more importantly perhaps, 
+what prompted the bizarre uprising which forced us to depart?
+
+	It has been decided that the prime directive of the new 
+administration will be to accomplish a reunion between the Old 
+Earth and the New.  We have bided our time and consolidated 
+our position.  Now we feel that the time is ripe to start an 
+ambitious venture.  This is the test that we feel inexorably 
+drawn to, the unavoidable fate of our people.  It is our destiny...
+
+The Amnesty Star System
+
+	Astronomy was a forgotten subject for many years as 
+the earliest colonists fought to survive on New Earth.  
+However, the recent completion of an observatory means that 
+the bodies of the solar system, deemed the Amnesty system by 
+New Earth astronomers, are finally beginning to be catalogued.  
+The Amnesty system consists of three known planets, although 
+gravitational influences on the outermost planet indicate the 
+presence of at least one other major body in the system.  More 
+advances in astronomy, such as detailed surface observations of 
+planets and moons, are expected to occur as a result of the 
+Reunion project.
+
+Known Planets
+
+Amnesty
+
+	Amnesty is the star at the core of this system.  Amnesty 
+is very similar to the star Sol and is therefore unremarkable in 
+itself, although the presence of life on the planets in the system 
+would warrant Amnesty a mention in any encyclopedia.
+
+Klatoo
+
+	This world was discovered by the eminent scientist 
+Klatoo using a self-made telescope.  Klatoo is twice as large as 
+New Earth and is thought to have a very rocky surface.  A very 
+high surface temperature is almost a certainty due to the close 
+proximity of Amnesty.  It is not known whether Klatoo has any 
+natural satellites.
+
+New Earth
+
+	This is the home of the first Terran colonists to leave the 
+Sol system.  New earth looks remarkably similar to the old 
+Earth, although the planet's diameter is less than half that of the 
+old Earth.  The climate of New Earth is extremely pleasant, 
+having a mean temperature slightly higher than that of Old 
+Earth.  An abundance of useful ores can be found beneath the 
+surface of the planet, a fact that was essential to the survival of 
+the colonists.
+
+New Earth has only one natural satellite which is approximately 
+one third the size of its mother planet.  This moon is named 
+"Apollo" in honor of the spacecraft that first took men to the 
+moon of old Earth.  Unlike the Terran moon, Apollo has an 
+atmosphere and initial scans indicate the presence of minerals 
+beneath the surface.  It is thought that Apollo would make an 
+excellent choice for the first off-world colony.
+
+Zeus
+
+	This giant planet is approximately five times the size of 
+New Earth.  Because of difficult observation conditions and 
+distance, little is known about this planet.  It is theorized that 
+the planet is mainly water, which would account for the blue 
+color of the surface, but we will not know for certain until the 
+planet is visited.  It is not known if Zeus has any natural 
+satellites.
+
+The Government of New Earth
+
+	New Earth is governed by a democracy.  The adult 
+population of the colony elects a leader, and this leader is then 
+free to govern by decree.  The elected leader (or President, as 
+he or she is referred to), is restricted by the colony constitution 
+which enables the President to be removed by a vote of no-
+confidence.  This is very rare and strong reasons must be given 
+before the referendum is held.  The constitution states (in 
+simplified terms) that the President must:
+
+	A.  Supply comfortable living conditions for the people.
+	B.  Protect the people from invasion.
+	C.  Refrain form using oppressive force and taxation 
+against the people.
+
+In order to meet the conditions provided for by the constitution, 
+the President must hire advisors to fulfill certain roles within the 
+government.  These advisors, or Commanders, will aid the 
+President through the development of new technologies, 
+interplanetary exploration and defense, and the building of 
+public facilities for the colonists.  In addition, the President has 
+been supplied with the Colony Central Computer System to 
+administrate all aspects of the departments headed by these 
+commanders.
+
+The Colony Central Computer System
+
+Control Protocol
+
+	Information is accessed from the computer using an 
+intuitive point and click interface.  A pointer is visible on the 
+screen which can be moved around using a mouse.  When the 
+pointer moves across an interactive part of the screen, 
+"clicking" the left mouse button (and occasionally the right 
+mouse button) will access that function.  To begin your quest, 
+select New Game and choose the gender of your hero.
+
+Main Screen
+
+	This is your control room.  All the important computer 
+functions can be accessed from here.  For convenience, the 
+most important functions are displayed as two rows of icons , 
+or menu bars, at the top of the screen.  You may scroll back and 
+forth between the two rows by clicking on the red arrow at the 
+right end of each row.  Alternatively, the functions may be 
+accessed by clicking on various areas (doors, windows, etc.) of 
+the control room.  Once you have entered another screen it is 
+always possible to return by clicking on the Back to Main 
+Screen icon on the far left hand side of the menu bar.
+
+	Just below the icons is a bar divided into three sections.  
+The left box describes the function of the icon or area of the 
+screen the pointer is currently pointing at.  The middle box 
+displays the number of "credits" from taxation you have 
+available to spend. The right box displays the current time as 
+Year/Month/Day/Hour and is modeled after the Old Earth 
+calendar.  By left clicking on the time box you may speed up the 
+rate that time progresses.  Clicking the right mouse button on 
+this box increases the speed even further.
+
+Icons - Getting Started
+
+	When you click on an icon (or section of the main 
+screen), a new screen and menu bar appears which is relevant to 
+that particular function.  Each of the main screen icons and their 
+subsequent menus are presented here in a logical order to help 
+you get started quickly.  When you have finished reviewing the 
+information presented here, you will be well on your way to 
+completing the Reunion initiative.
+
+	Your first task in maintaining a successful campaign is 
+to hire a group of commanders.  From the main screen, scroll 
+down until you see the icon shown above and left click on it.  
+You will now be presented with a new menu bar as shown
+
+Each of these new menu selections corresponds to a pool of 
+commanders in the areas of space flight, combat, building 
+construction, and product development.  By clicking on one of 
+these new icons you will be presented with three possible 
+selections for each area.  Each of the advisors carries a price 
+commensurate with his or her abilities, so you would be wise to 
+make inexpensive selections until you have accumulated more 
+credits.  To hire a commander click on the  Hire icon at the far 
+right of the menu bar.
+
+Responsible for all the space pilots and for coordinating their 
+movements
+
+Bruce Jordan:  Bruce has just graduated from the Military 
+Academy where he scored impressive results in the combat 
+simulation tests.  A young man with excellent potential.  Bruce 
+would be a superb choice as Advisor if he did not lack "real 
+battle" experience.  For those on a low budget, his inexperience 
+might be a risk worth taking.
+
+Jack Benson:  A hardened veteran of many simulation 
+campaigns, Jack has demonstrated an outstanding ability as both 
+a pilot and strategist.  Jack continues the proud family tradition 
+of producing excellent pilots.  His grandfather Bryan once 
+defeated a whole armada of grade 10 simu-fighters single 
+handed.
+
+Julie Anne Roxford:  An immensely talented pilot, Julie Anne 
+was recruited into the military after recording a perfect score in 
+college aptitude tests.  Julie Anne has a unique flair for 
+obtaining the most out of her machinery and manpower, and is 
+widely regarded as a strategic genius.  Unfortunately, like most 
+geniuses, she is occasionally erratic.
+
+Responsible for the construction and maintenance of Colony 
+installations.
+
+Arwen Nielson:  Arwen left the Technical Academy three years 
+ago after achieving exemplary results in her examinations.  
+Since then she has been working in the field for the surveying 
+department.  Her wide sphere of the knowledge would be a 
+valuable asset.  Unfortunately, Arwen has little experience of 
+high pressure situations.  
+
+Elanor Brady:  An experienced government administrator, 
+Elanor has been responsible for the extensive power station 
+modification program.  Methodical and reliable, Elanor is 
+known as a person to get the job done.  Occasionally she is 
+accused of unnecessary procrastination when a project has to be 
+completed quickly.  
+
+William Forbs:  Forbs is a legend in the construction industry.  
+Starting off as a simple workman, William has steadily worked 
+his way to being the most highly respected construction 
+manager on New Earth.  There is a saying, "If Forbs can't build 
+it , it can't be built!".  Unfortunately, this expertise has a very 
+high price.
+
+Responsible for the direction of battles
+
+Michael James:  Mike is a relatively inexperienced fighter, a 
+fact that can be discerned by the lack of noticeable bionic 
+implants.  A champion gladiator at the New Earth games, Mike 
+is also an excellent spaceball captain.  Virtual battle simulations 
+show that Mike has an excellent aptitude for the job.
+
+Kyle Douglas:  Kyle was heavily scarred during a battle 
+exercise in the Great Desert and now has to wear a face mask 
+with image enhancing equipment over his left eye.  Kyle is an 
+extremely brave fighter and a superb tactician who has a wealth 
+of combat experience.  For such a qualified person, his demands 
+are relatively low.
+
+MACH:  MACH is a cyborg, half man - half machine.  An ex-
+Army general, MACH was killed during a terrorist attack on his 
+patrol but was restored to life using advanced bionic techniques.  
+His already extensive knowledge is now supplemented by a 
+positronic brain as powerful as a super computer.  He is a 
+formidable opponent.
+
+Responsible for the development of prototype machinery.
+
+Sapphire Fox:  Sapphire is the youngest person ever to receive 
+the New Earth Innovation Award, given for advancements in 
+brain wave analysis.  A good example of this is the prototype  
+"thought recorder" Sapphire wears on her head.  Sapphire is 
+regarded as a developer of immense potential and great things 
+are expected of her.
+
+Thomas Dempsey:  Thomas holds patents for more new 
+inventions than any other person on New Earth.  Seemingly 
+tireless, Thomas has been known to work without sleep for 
+days on end until a problem is solved.  Because of his great age, 
+Thomas is not quite so productive as he used to be.  His 
+experience, however, is unequaled.
+
+Klaatoo:  Klatoo is a true scholar.  As well as possessing 
+excellent design skills, Klaatoo is an accomplished violinist, 
+astronomer, philosopher, and historian (he specializes in Old 
+Earth science fiction).  Superficially apathetic in nature, his 
+mind is engaged in deep thought almost constantly.  
+Unfortunately, his fee is high.  
+
+Consulting your Commandeers
+
+	Once you have selected your commanders, click on the 
+Back to Main Screen icon to return to the main screen.  Your 
+commanders now appear around the conference table before 
+you.  It is possible to engage in conversation with each of your 
+advisors by clicking on them.  Once the conversation has started 
+you may ask them one of the questions displayed by clicking on 
+the text.  Additionally, you may order your advisor to attend the 
+university and develop new skills for a price.  If your advisor 
+cannot become more skilled he or she will let you know, and 
+you will then have to hire another in order to continue with 
+more complex tasks in each discipline.
+
+	Once you have provided the leadership necessary to 
+continue with your objective, you should take a look around at 
+the surface of New Earth and familiarize yourself with its 
+features.  After clicking on the Planet Main icon from the main 
+screen, a new menu bar will appear at the top of the screen with 
+relevant icons.  
+
+Notice that the menu bar contains some new selections as well 
+as some others from the main screen.  Click on the "Planet 
+Information" icon.
+
+	By clicking on this icon you will be shown a screen with 
+information concerning the name of the planet or moon, 
+population, tax rates, terrain types, temperature, and ore 
+content.
+
+  If the planet is inhabited by an alien race, clicking on the 
+portrait displayed will give more detailed information 
+concerning that race.  Clicking on the picture of the planet on 
+this screen will take you to the ship information screen, and 
+clicking on the picture of the surface will enlarge it.  The Planet 
+Information screen has another set of icons used for controlling 
+the tax rate.  To return to the surface of the planet, click once 
+again on the Planet Surface icon.
+
+Building and Demolishing New Structures
+
+	New Earth has a number structures used for housing the 
+population, providing recreation and health care, and extracting 
+ores from beneath the surface.  Click on one of the buildings 
+and you will be given a description of its purpose.  To move 
+around the surface, click and hold the left mouse button while in 
+the radar screen at the bottom left of the screen and move the 
+mouse, or click and hold the left mouse button when the cursor 
+is at the edges of the surface screen.  To build a new structure, 
+first find a vacant piece of land.  Then, scroll through the 
+available selections at the top left of the screen and click on 
+"Build".  Move the structure into the desired area and left click 
+once again to place it.  To demolish a structure, scroll through 
+the list to find the building you wish to destroy, click on 
+"Demolish" and then click on the building itself.
+
+Note:    If a building is flashing red, then you do not have 
+enough power to run the entire colony.  You must build more 
+power plants to increase the "Percent Working" to an 
+acceptable level.
+
+Mining Ores on the Planet Surface
+
+	An important key to the survival of your colony is the 
+mining of ores from beneath the surface of the planet.  There 
+are two means of extracting the raw materials you will need to 
+build structures and develop new products for your population:  
+building derricks, and digging mines.  Derricks produce the 
+liquid ore "detoxin" and mines produce all others.  Scroll 
+through the available building selections at the left of  the Planet 
+Surface screen until you find the mine.  Now, find one of these 
+mines on the surface of the planet and click on it.
+
+This screen gives detailed information concerning all the mines 
+and derricks on the surface of the planet The total quantity of 
+each ore that is in storage and the total being produced in each 
+time period is shown at the top.  The total number of mines on 
+the planet is shown in the middle section, and the number of 
+these mines that are active is shown on the bottom left.  The 
+"stock" number represents the number of miner droids (shown 
+in the picture at the right) that are available to add to each 
+inactive mine.  If you have miner droids in stock, clicking on the 
+"Add Droid" icon will make a mine active. You only need one 
+droid to operate a mine and derricks require no droids at all.
+
+Note:  You may only have 9 active mines on a planet or moon 
+at a time.  
+
+	Now build a few mines and derricks on the surface of 
+the planet.  Find an empty piece of terrain and click on "Build" 
+while the picture of the mine is in the screen at the left.  Move 
+the mine into position on the surface and left click to place it.  
+Now scroll down to find the picture of the derrick and repeat 
+the process.  The next time you click on a mine, notice that the 
+total number of mines has increased, but that these new mines 
+are inactive.  The next step is to produce some miner droids to 
+add to the mines.
+
+	From the main screen click on the Research-Design icon 
+at the top left.  This  will access the Research screen where 
+prototype machinery is developed.
+
+Researching New Products
+
+At the bottom of the screen is the name of your development 
+advisor and the level of knowledge that he or she has in the 
+areas of Math, Physics, Electronics, and Artificial Intelligence.  
+On the right side of the screen data is displayed concerning the 
+item being researched and the requirements placed upon your 
+developer to complete the invention.
+
+The left side of the screen contains a bank of 35 slots for optical 
+disks containing data on new inventions.  If the slot is closed 
+you cannot begin development on that particular item.  An 
+empty slot indicates that the item is ready for analysis but not 
+production.  The presence of a disk indicates that the item is 
+fully researched and ready for production.  To begin research 
+on an item, simply click on the empty slot.
+
+	Move the mouse pointer over the empty slot reserved 
+for the miner droid and click once to begin development.  The 
+drawer will slide shut and a series of LEDs will begin to flash 
+indicating that the project has begun.  The monitor at the right 
+will indicate progress by counting down until development is 
+complete.  At this time you can begin to produce the item that 
+has been researched.  You should also research the satellite 
+before continuing.  Satellites are necessary to explore the 
+surface of other planets.
+
+Note:  	If research is halted at any time your developer does not 
+possess the skills to	complete the item.  You must either send 
+the developer to the university or select 	someone with 
+higher skills.
+
+	By clicking on the Info - Buy icon you will access a 
+screen which will allow you to purchase items that have been 
+researched.  Once again, a new menu bar will appear at the top 
+of the screen with relevant icons.
+
+Selecting and buying Items
+
+You can scroll through available items by clicking on the up or 
+down arrow on the right side of the menu bar.  Alternatively, 
+you may select an item by clicking on the rotating figure at the 
+left side of the screen and using the list revealed.  Clicking on 
+the picture at the right side of the screen will give you a detailed 
+description of the item and the amount of ore required to 
+produce it.  At the bottom of the screen several messages may 
+be displayed:
+
+Bought Items:  This displays the number of items bought, but 
+not yet completed.  You may decrease the number by clicking 
+on the minus icon.
+
+Stores:  Shows you the number of items produced and waiting 
+in the storage houses.
+
+Time to Go:  The time remaining until all bought items are 
+produced.
+
+Total Price:  The total price of the ordered items.
+
+This Item Cannot Be Produced:  This message is displayed if 
+the object is built, rather than produced.  The cost is paid when 
+orders are given to develop the item.
+
+Once you have made a selection, click on the "Buy" icon to 
+make a purchase.  A new menu bar will appear.
+
+Add/Minus Ten:  Add or Subtract ten items from the number 
+of items ordered.
+
+Add/Minus One:  Add or subtract one item from the number 
+of items purchased.
+
+OK:  Buy the goods Selected. (Production will now start).
+
+Cancel:  Exit from this screen.
+
+If you do not have enough credits or ores t pay for and 
+manufacture an item, the missing quantity will flash red.  This 
+means that you will not be able to increase the quantity of items 
+ordered until you have either more credits or more ores.
+
+	Go back to the Production screen and select "Miner 
+Droid" from the list of available items.  Click on "Buy" and then 
+purchase a few droids to work in your newly built mines.  Now 
+purchase some satellites for interplanetary exploration.  When 
+production is complete return to the main screen and then click 
+on the "Planet Surface" icon.  Find a mine on the surface, click 
+on it, and then click on the "Add Droid " icon until the number 
+of active mines has increased proportionately.  You have now 
+increased production on your own planet, and are ready to start 
+exploring some of the others.
+
+	From the main screen, click on the Galactic Map icon to 
+get a view of all known planets in the current solar system.
+
+Exploring and Colonizing New Worlds
+
+A list of the known star systems is displayed on the right of the 
+screen.  It is expected that many star systems will be discovered 
+in the search for Old Earth.  Move the mouse pointer over a 
+planet and its name will appear in the box at the top left.  To 
+take a closer look at a planet, click on it with the left mouse 
+button.  This shows the planet and its system of moons (if 
+discovered).  To return to the view of the complete star system, 
+click on the "Zoom Out" icon (magnifying glass).   To view the 
+surface of the planet or any moons, click on them with the left 
+mouse button.  If you have a satellite deployed over the planet 
+then you will see the surface.  Otherwise, only a black screen 
+will appear.   When observing the surface of the planet a 
+number of new icons may appear at the top of the screen:
+
+	This is only displayed if you have satellites in stock.  If 
+you launch a satellite it will go into orbit around the planet or 
+moon and continuously transmit information regarding the 
+planet.  This information is displayed on the Planet Information 
+screen.  Satellites also enable you to view the surface of the 
+planet.  You may only have one satellite orbiting a planet or 
+moon.
+
+	Miner stations are automated facilities used for 
+extracting useful ores from a planet or moon.  If a planet is 
+suitable for mining but cannot be colonized, constructing a 
+miner station will let you extract the ores without the need for 
+human presence.  As soon as the miner station is deployed, 
+extraction will start.
+
+	This icon appears only if a planet or moon is capable of 
+sustaining human life.  This information is displayed on the 
+Planet Information screen if a satellite is in orbit around the 
+planet or moon.  When this icon is selected a screen is displayed 
+showing the installations you may construct.
+
+The Colony Control Center costs 100,000 credits.  Any extra 
+buildings will increase the costs.  Once you have selected the 
+buildings to be constructed you will have to wait a while before 
+the installations are finished.  Some installations cannot be 
+constructed on certain types of terrain.  
+
+	This satellite is similar to the normal satellite except that 
+it is manufactured using advanced "stealth" technology.  This 
+renders the satellite nearly invisible to radar tracking stations.  
+This will come in very useful when information is required on 
+"occupied" planets or moons.
+
+	This icon is only displayed if there are alien installations 
+on the planet and a spy satellite is orbiting the planet.  Spy ships 
+are manufactured using the same technology as spy satellites 
+and are therefore nearly impossible to track.  The spy ship 
+actually enters the target planets atmosphere and provides a 
+more detailed report on enemy forces.  This information can be 
+accessed by clicking on the enemy portrait in the Planet 
+Information screen.
+
+	This satellite captures solar energy and transfers it to the 
+planet or moon below.  A maximum of five can be placed in 
+orbit around a single planet or moon.  Solar satellite can only be 
+constructed where there is a colony and the satellite itself must 
+be transferred to the intended planet or moon from the place of 
+manufacture.
+
+	After clicking on the Galactic Map icon from the main 
+screen, position the cursor over New Earth and left click.  A 
+picture of New Earth and its orbiting moon Apollo will be 
+revealed.  Now position the cursor over Apollo and click.  A 
+dark screen will appear indicating the absence of a satellite.  Put 
+a satellite around the moon Apollo by clicking on the "Deploy 
+Satellite" icon at the top of the screen.  You should now see the 
+surface of Apollo, and information concerning the surface will 
+soon be relayed to New Earth.
+
+	At the main screen click on the "Messages" icon to get 
+into the message screen. 
+
+This screen lets you review messages and other relevant 
+information that you have received during the game.  As data is 
+often received at a very high rate, this is a surprisingly useful 
+feature.  
+
+	Shortly after deploying your first satellite, a message 
+will arrive indicating that ores are present on the surface of 
+Apollo.  However, messages will indicate that you don't have 
+any way of mining on the moon!  Fortunately, your developer 
+will invent the miner station and the trade ship to aid you in 
+shipping raw materials back home.  Once you have fully 
+developed these items in the Research area, it is time to begin 
+building your fleet.  Go to the production area and buy a trade 
+ship and a miner station.
+
+	Click on the Ship Info icon in the main screen to 
+monitor the movement of your spacecraft.
+
+On the right hand side of the screen, information regarding the 
+composition of the spacecraft squadrons is displayed.  If you 
+click on a squadron with the left mouse button it becomes the 
+active squadron, denoted by a red light.  Right clicking on a 
+squadron will bring you to the "Group" screen, and clicking on 
+"Change" at the bottom of the screen will access planet 
+defenses.  Different types of squadrons or "groups" are denoted 
+by different colors.
+
+	Red:  Military Squadron
+	Green:  Pirate Forces
+	Blue:  Trade Squadron
+	Gray:  Satellite Carriers
+	Brown:  Planet Defense Forces
+
+  Clicking on Ship Info creates a new menu bar at the top of the 
+screen.
+
+	This icon forms a new group of ships that you can name 
+whatever you like.  Below the name box is a description of the 
+type of group you are creating.  The group type can be changed 
+by clicking in the box.  The four possible groups are:
+
+Satellite Carriers:  Only carry satellites.
+
+Trade Groups:  Useful for carrying items between planets and 
+moons.  Since production facilities are concentrated on New 
+Earth, it is advisable to carry ores mined off-world back to New 
+Earth for production.
+
+Army Groups:  These units are divided into two parts:  The 
+space fleet, which is responsible for combat in space, and 
+ground forces which will attack enemy ground installations.  
+You may switch between the two sections by clicking on the 
+large red arrows on the group screen.
+
+Planet Forces:  These are the same as Army Groups except 
+that they stay within the confines of their planet's atmosphere.  
+Planet forces only exist where there is a colony.
+
+Note:  Whenever a new type of ship is invented it is a good idea 
+to create a new unit for that ship type immediately.
+
+When you have named the group and chosen its type, click on 
+the OK icon to create it or the Abort icon to cancel it.
+
+	This icon enables the contents of the group to be 
+modified.  For example, ships may be added or removed, 
+weapons may be fitted to the ship, etc.  A new screen will be 
+displayed as shown.
+
+ A group can have four types of ships and each ship can have up 
+to four types of weapon.  You can only put the appropriate 
+ships into a group.  For example, a trade ship cannot be put into 
+an army group.  Clicking on the number of ships with the left 
+mouse button will increase the number of ships in the platoon.  
+You can use the right mouse button to decrease the number of 
+ships.  Weapons can be added using the same technique.  
+Clicking on a group name allows the name to be modified.  
+Clicking on the arrow scrolls through the different groups.  
+
+	Clicking on the "Control Panel" icon will access the 
+cockpit of the selected group's lead ship.
+
+The "dashboard" of the cockpit is split into several sections.  
+Clicking on the window while landed on a planet will access the 
+Surface screen.  The launch lever launches lands the ship.  If the 
+ship is a trade ship, clicking on the left hand monitor will access 
+the cargo screen.  From here you can transfer goods between 
+planets that have a colony or miner station.  Clicking on the 
+joystick allows you to select a destination for your ships.  Right 
+clicking on a planet will select that planet as your destination, 
+and left clicking on a planet will allow you to zoom in and select 
+one of that planet's moons.  The dials at the right side of the 
+cockpit accesses the Ship Info screen, and clicking the keypad 
+will access the Group screen.          
+
+	This icon appears if you have a ship capable of 
+transferring cargo.  From the transfer screen you may transfer 
+cargo to the hold of your ships from the stores of your colonies.
+
+This enables you to move items to the places they are most 
+needed.  Clicking on the arrows with the left mouse button will 
+transfer one item of the selected cargo to your ship or colony, 
+while using the right mouse button will transfer as much cargo 
+as possible.
+
+	Once you have bought a trade ship and miner station, 
+create a new trade group by clicking on the Ship Info icon and 
+the New Group icon.  Add the trade ship and miner station to 
+the group and then click on the Control Panel.  Send the new 
+ship into orbit by clicking on the launch lever, and then click on 
+the joystick.  Select the moon Apollo as your destination by 
+clicking on it.  The ship should now be en route to Apollo.  
+Once it has arrived, click on the Add Miner Station icon.  
+Construction of a miner station will now begin on the moon.     
+
+Once you have familiarized yourself with all of the icons 
+discussed thus far, you have successfully completed the first 
+step in building a lucrative network of colonies.  Here are some 
+other important icons found in the main screen: 
+
+	Click on the "Space Local" icon to talk to the local 
+barflies and alien races which may pass through the Amnesty 
+system.
+
+A lot of people pass through this bar and useful information can 
+be obtained from talking to them.  To talk to someone, click on 
+their face.  The conversation will progress according to your 
+questions and responses.
+
+	This icon will give you access to useful information 
+concerning the galaxy.  
+
+	This icon will give you a list of the planets on which you 
+currently have a miner station  or colony.
+
+	Clicking on this icon will give you a list of all planets 
+which have been found to be livable or mineable.
+
+	This icon will give you information on all known alien 
+planets, enemy or friendly.
+
+Engaging the Enemy
+
+	As a result of further exploration it is highly likely that 
+you will encounter hostile alien races.  As soon as the 
+technology for warfare is developed you should create an army 
+group in the Ship Info area by clicking on the "New Unit" icon.  
+
+Note:   Army groups are necessary to attack other planets.  You 
+cannot attack alien fleets or colonies using your defensive planet 
+forces.  However, army groups can be used to defend a planet if 
+they are in orbit around or on the surface of a planet.
+
+You may add warships and weapons to the army unit as soon as 
+they are completed in the Production area.  You may also add 
+warships to your planetary defenses, but they cannot leave the 
+atmosphere of New Earth without adding them to the army 
+group.  To fortify the planetary defenses of other colonies you 
+must send an army unit to that colony and transfer the ships on 
+the surface of the planet.
+
+	To attack another colony or fleet  you must send an 
+army group into orbit around the planet where enemy units are 
+found.  Once the army group has arrived there are two modes 
+of engaging in battle.
+
+	When an enemy fleet is present around a planet where 
+you have deployed your forces, clicking on the enemy fleet's 
+symbol at the right of the Starmap screen will activate the 
+Attack icon.  At this point you may click on the Attack icon and 
+begin a space battle.  
+
+Battles are won depending on the relative strength of your fleet, 
+the ability of your fighter commander, and a number of other 
+variables.  At the end of the battle a list of stats will display the 
+outcome.
+
+	To start a ground war, send your army fleet to the 
+enemy planet and then click on the symbol representing your 
+fleet at the right of the Starmap screen.  This will activate the 
+Ground Battle icon.  When you click on the Ground War icon a 
+space battle will ensue as you fight your way to the surface of 
+the enemy planet.  If you win the space battle, the next step is to 
+wipe out enemy ground forces.  A new screen will appear.
+
+You may rearrange your ground forces by building new units 
+with the icons at the top of the screen, or by clicking on each 
+individual box to add or remove items.  Use the left button to 
+add units and the right button to remove them.  When you are 
+done click on the "OK" icon to get a view of the battle zone.
+
+You can attack an enemy by clicking on your vehicle, clicking 
+on ATTACK, then clicking on the enemy unit you wish to 
+attack.  
+
+Saving and Loading Games
+
+\
+	Clicking on this icon will allow you to save and load 
+your games as well as control the music and sound effects.
+
+On the left hand side of the screen are the names of saved 
+games.   Click on one so it is highlighted, then click on Load or 
+Save, depending on what you want to do.  In the bottom right 
+hand corner you may select sound effects or music.  The I and 
+II buttons change the music, the square button stops the music, 
+and the E button turns on/off the sound effects.  Clicking on the 
+Exit to DOS icon will quit the game.
+
+Note:  While in the Disk Operation Screen the game is paused.
+
+Customer Service
+If you are experiencing difficulties with Reunion and you are a 
+registered user, you may call our technical support department 
+for assistance at (214) 385-2957. A technician will be available 
+to help between the hours of 10:00am and 5:00pm Central 
+Time, Monday through Friday.
+We welcome your questions, comments, or other feedback 
+regarding Reunion or any or our other products. You may write 
+to us at:
+
+Merit Software 
+13707 Gamma Road
+Dallas, Texas  75244
+
+On-Line Support Via CompuServe
+For on-line support of Reunion via CompuServe, call 800-848-
+8199 and ask for Representative 321 to get your FREE 
+introductory membership and $15 usage credit. If you are 
+already a member of CompuServe, type the command GO 
+GAMAPUB at any ! prompt to get Merit Software's support 
+section, or contact our technical support department at 
+ID#76711,247.
+
+What is CompuServe?
+CompuServe is the world's largest international network of 
+personal computer users(1.2 million+ members worldwide) and 
+has over 1,400 products and services to choose from. You can 
+talk directly to software publishers, download free software, 
+and get the latest news and sports of interest with a personal 
+clipping service. Check out the weather forecast with Accu-
+Weather maps. Plan, schedule and book your own flights; do 
+your own research with an on-line encyclopedia; and look at the 
+latest up-to-the-minute stock reports. Utilize international mail 
+capabilities, software support and much, much more.
+
+MERIT STUDIOS
+PROGRAM AND LICENSE AGREEMENT AND LIMITED WARRANTY
+CAREFULLY READ ALL THE TERMS AND CONDITIONS OF THIS AGREEMENT PRIOR TO
+USING THE PROGRAM RECORDED ON THE DISKETTES OR CD'S. OPERATING THIS
+PROGRAM INDICATES YOUR ACCEPTANCE OF THESE TERMS AND CONDITIONS.
+
+1. COPYRIGHT:  THESE PROGRAMS AND THE RELATED DOCUMENTATION ARE
+COPYRIGHTED. YOU MAY NOT USE, COPY, MODIFY, OR TRANSFER THE PROGRAMS OR
+DOCUMENTATION, OR ANY COPY THEREOF EXCEPT AS EXPRESSLY PROVIDED IN THIS
+AGREEMENT.
+
+2. LICENSE: You have the non-exclusive right to use any enclosed program only
+on a single computer. You may load the program into your computer's temporary
+memory (RAM). You may physically transfer the program from one computer to
+another provided that the program is used on only one computer at a time. You
+may modify or translate the program providing such modification or translation
+is for your own use and that no more than one such modified or translated copy
+exists at any one time. You may not electronically transfer or access the
+program from another computer over a network. You may not distribute copies
+of the program or accompanying documentation to others. You may not decompile,
+disassemble, or reverse engineer the program. You may not attempt to unlock or
+bypass any copyprotection utilized with the program. Title to the programs and
+all other rights and uses not specifically granted in this license are reserved
+by MERIT STUDIOS. 
+
+3. BACK-UP AND TRANSFER You may make one (1) copy of the program solely for
+back-up purposes. You must reproduce and include the copyright notice on the
+back-up copy. You may transfer and license the product to another party only
+if the other party agrees to the terms and conditions of this Agreement and
+completes and returns a registration card to MERIT STUDIOS. If you transfer
+the program you must at the same time transfer the documentation and back-up
+copy or transfer the documentation and destroy the back-up copy.
+
+4. TERMS: This license is effective until terminated. You may terminate it by
+destroying the program and documentation and all copies thereof. This license
+will also terminate if you fail to comply with any term or condition of this
+Agreement.  You agree upon such termination to destroy all copies of the
+program and documentation.
+
+5. PROGRAM DISCLAIMERS: The programs are provided "AS IS" without Warranty of
+any kind, either expressed or implied, including, but not limited to, the
+implied warranties of merchantability and fitness for a particular purpose.
+The entire risk as to the results and performance of any program is assumed by
+you.  Should the program prove defective, you (and not MERIT STUDIOS or its
+dealers) assume the entire cost of all necessary servicing, repair or
+correction.  Further, MERIT STUDIOS does not warrant, guarantee or make any
+representations regarding the use of, or the results of the use of, the program
+in terms of suitability, accuracy, reliability, currentness, or otherwise; and
+you rely on the program and results solely at your own risk.
+
+6. MEDIA LIMITED WARRANTY: MERIT STUDIOS warrants to the original licensee
+that the media on which the program is recorded shall be free from defects in
+material and workmanship only for a period of ninety (90) days from the date of
+original purchase. If a defect covered by this warranty occurs during this
+90-day warranty period, and it is returned to MERIT STUDIOS no later than five
+(5) days after the end of such 90 day period, MERIT STUDIOS shall either
+replace or repair the product. At the end of the expiration MERIT STUDIOS will
+replace or repair your purchase for $5.
+
+The above warranty is exclusive and in lieu of all other conditions and
+warranties, express or implied, including, but not limited to implied
+conditions or warranties of merchantability or fitness for a particular purpose
+and those arising by statute or otherwise in law or from a course of dealing or
+trade. To the extent such statutes or laws prohibit the exclusion of such
+implied warranties they shall be limited to a period of 90 days from the date
+of your original purchase. No conditions or warranties, either expressed or
+implied will apply after this period. 
+
+7. LIMITATION OF LIABILITY: MERIT Studios' liability is limited solely to the
+repair or replacement of the defective product, in its sole discretion, and
+shall not in any event include damages for loss of use or loss of anticipated
+profits or benefits or other incidental or consequential costs, expenses or
+damages, including without limitation, any data or information which may be
+lost or rendered inaccurate, even if MERIT STUDIOS has been advised of the
+possibility of such damages. 
+
+Some states do not allow an exclusion of implied warranty or limitation of
+incidental or consequential damages, so the above limitations or exclusions
+may not apply to you. This warranty gives you specific legal rights, and you
+may also have other rights which vary from state to state.
+
+8. MISCELLANEOUS: This agreement represents the entire understanding regarding
+the programs and related documentation, and supersedes any prior purchase
+order, communications or representations. This agreement may only be modified
+by a written amendment signed by an officer of MERIT STUDIOS. If any provision
+of the agreement shall be deemed unlawful, void, or for any reason,
+unenforceable it shall be deemed severable from, and shall in no way affect
+the validity and enforceability of the remaining provisions of the agreement.
+
+This license agreement shall be governed by the laws of the United States of
+America, State of Texas.
+
+If this product is being acquired for or on behalf of the United States of
+America, its agencies and/or instrumentalities, it is provided with RESTRICTED
+RIGHTS, and all use, duplication, or disclosure with respect to the included
+software and documentation is subject to the restrictions set forth in The
+Rights in Technical Data and Computer Software clause at 252.227-7013 of the
+DOD FAR and the Rights in Data-General clause at 52.227-14 of the FAR.
+
+Unless otherwise indicated, the manufacturer/integrator is Merit Studios,
+13707 Gamma Road, Dallas, TX  75244.
+
+9. The program License Agreement shall inure to the benefit of Merit Studios,
+its parent, and all affiliated companies thereof.
+
+Merit Studios and the Merit logos are trademarks of Merit Software, Inc.
+
