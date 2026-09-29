@@ -137,6 +137,7 @@ fn screen_named(name: &str) -> Option<GameScreen> {
         "pub" => GameScreen::SpaceLocal,
         "cockpit" => GameScreen::ControlPanel,
         "transfer" => GameScreen::Transfer,
+        "settings" => GameScreen::Settings,
         _ => return None,
     })
 }

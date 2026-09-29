@@ -342,7 +342,7 @@ fn toggle_widescreen(
     widescreen.0 = !widescreen.0;
     let (timer, text, visibility) = &mut *label;
     timer.0 = Timer::from_seconds(2.0, TimerMode::Once);
-    text.0 = if widescreen.0 { "Widescreen" } else { "Original 4:3" }.into();
+    text.0 = if widescreen.0 { "Widescreen (experimental)" } else { "Original 4:3" }.into();
     **visibility = Visibility::Inherited;
 }
 

@@ -36,6 +36,7 @@ mod research;
 mod resource_mine;
 mod pub_local;
 mod screen;
+mod settings;
 mod space_battle;
 mod story;
 mod ship_info;
@@ -93,6 +94,7 @@ fn main() {
             audio::SoundPlugin,
             cutscene::CutscenePlugin,
             anim_player::AnimPlayerPlugin,
+            settings::SettingsPlugin,
             input::InputPlugin,
             focus::FocusPlugin,
             menu::MenuPlugin,

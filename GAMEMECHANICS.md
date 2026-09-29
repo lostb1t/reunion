@@ -105,5 +105,7 @@ each battle). The key combination that set them was apparently removed before re
 - **Win battles** (flag `DS:0x91e8`): in space battles every hit destroys its target; a
   ground war ends at once as a win.
 
-The rewrite honours the battle cheat (the battles read `0x91e8`); for testing, the
-autopilot can set it with `byte 91e8 1`. The money cheat isn't ported.
+The rewrite has both on its Settings page (see the README). The money cheat there is
+tamer than the original's per-frame bonus: turning it on brings the money to 1,000,000 and
+finishes the research in progress, then it adds 10,000 credits an hour. For testing, the
+autopilot can also set the battle flag with `byte 91e8 1`.

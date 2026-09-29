@@ -91,13 +91,13 @@ fn save_path(slot: u8) -> PathBuf {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-fn game_folder() -> PathBuf {
+pub fn game_folder() -> PathBuf {
     bevy::asset::io::file::FileAssetReader::get_base_path().join("assets")
 }
 
 /// The browser has no game folder to save in; reading and writing fail.
 #[cfg(target_arch = "wasm32")]
-fn game_folder() -> PathBuf {
+pub fn game_folder() -> PathBuf {
     PathBuf::from("assets")
 }
 

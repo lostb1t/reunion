@@ -488,7 +488,11 @@ mod tests {
         // Every in-game screen has its icon bar set (PLANET MAIN is screen 20),
         // except the conversations with aliens, which have none.
         for screen in crate::screen::GameScreen::IN_GAME {
-            if matches!(screen, crate::screen::GameScreen::AlienTalk | crate::screen::GameScreen::PubTalk) {
+            // SETTINGS isn't the original's: its set is added at run time.
+            if matches!(
+                screen,
+                crate::screen::GameScreen::AlienTalk | crate::screen::GameScreen::PubTalk | crate::screen::GameScreen::Settings
+            ) {
                 continue;
             }
             let set = &data.icon_sets[screen.number().unwrap() as usize];

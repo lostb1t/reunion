@@ -27,3 +27,4 @@ __pycache__/
 # Steam Deck deploy (local setup)
 /redeploy-deck.sh
 /deck/
+/game/SAVE/SETTINGS.TXT

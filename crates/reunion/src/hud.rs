@@ -297,10 +297,13 @@ fn layout_icon_bar(
     mut focus: ResMut<Focus>,
     mut images: ResMut<Assets<Image>>,
 ) {
+    // The data changes once more when SETTINGS joins the main screen's set.
+    let data_changed = data.is_changed();
     let Some(data) = data.get(&handle.0) else {
         return;
     };
     if !parts.is_empty()
+        && !data_changed
         && !bounds.is_changed()
         && !page.is_changed()
         && !extra.is_changed()

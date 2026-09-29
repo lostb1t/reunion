@@ -16,7 +16,24 @@ The original game's files are included (`game/`).
   the game's files come with it.
 
 Controls: mouse, keyboard or controller. F8 / L3 switches the upscaling filter, F9 / R3
-switches between the original 4:3 and widescreen.
+switches between the original 4:3 and widescreen (experimental).
+
+### Settings
+
+Not in the original: the main screen's icon bar has a **Settings** icon (a cogwheel, on
+the bar's second page after Disk Operations). The page has:
+
+- **Widescreen (experimental)**: use the width of wide screens; off keeps the original 4:3.
+- **Upscaling**: off (plain pixels) or CRT.
+- **Music**: track 1, track 2 or off.
+- **Speech**: icons say what they do, or just click.
+- **Cheat: money and research**: money up to 1,000,000 and the research in progress
+  finished when turned on, then +10,000 credits an hour.
+- **Cheat: win every battle**: space battles' hits always destroy, ground wars are won at
+  once.
+
+The cheats are the original developers' (see [GAMEMECHANICS.md](GAMEMECHANICS.md#cheats)),
+which nothing in the shipped game turns on. Settings are kept in `assets/SAVE/SETTINGS.TXT`.
 
 How the original game works, as ported: [GAMEMECHANICS.md](GAMEMECHANICS.md). Screen by
 screen status: [SCREENS.md](SCREENS.md).

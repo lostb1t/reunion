@@ -156,7 +156,8 @@ fn on_back(
         | GameScreen::ShipInfo
         | GameScreen::InfoBuy
         | GameScreen::StaffTalk
-        | GameScreen::SpaceLocal => GameScreen::MainScreen,
+        | GameScreen::SpaceLocal
+        | GameScreen::Settings => GameScreen::MainScreen,
         GameScreen::PubTalk => GameScreen::SpaceLocal,
         GameScreen::ResourceMine => GameScreen::PlanetMain,
         GameScreen::Colonize => GameScreen::PlanetInfo,

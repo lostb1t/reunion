@@ -57,6 +57,8 @@ pub enum GameScreen {
     SpaceLocal,
     PubTalk,
     AlienTalk,
+    /// Not in the original: our settings page (see `settings.rs`).
+    Settings,
 }
 
 impl GameScreen {
@@ -97,6 +99,7 @@ impl GameScreen {
             GameScreen::SpaceLocal => Some(23),
             GameScreen::PubTalk => Some(25),
             GameScreen::AlienTalk => Some(34),
+            GameScreen::Settings => Some(crate::settings::SETTINGS_SCREEN),
             _ => None,
         }
     }
@@ -126,7 +129,8 @@ impl GameScreen {
     }
 
     /// All in-game screens (the ones with the icon bar and text strip).
-    pub const IN_GAME: [GameScreen; 27] = [
+    pub const IN_GAME: [GameScreen; 28] = [
+        GameScreen::Settings,
         GameScreen::GroundSetup,
         GameScreen::GroundWar,
         GameScreen::SpaceLocal,
