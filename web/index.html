@@ -7,14 +7,71 @@
     <style>
       html, body { width: 100%; height: 100%; margin: 0; background: #000; overflow: hidden; }
       #bevy { width: 100%; height: 100%; display: block; outline: none; }
+
+      /* Shown until the game starts, in the game's amber. */
+      #loading {
+        position: fixed; inset: 0;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        gap: 1.4rem;
+        background: #000; color: #b6aa00;
+        font: 600 1rem/1 ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+        letter-spacing: 0.35em; text-transform: uppercase;
+        transition: opacity 0.6s;
+      }
+      #loading.done { opacity: 0; pointer-events: none; }
+      #loading h1 {
+        margin: 0; font-size: 2.2rem; letter-spacing: 0.5em; color: #e0d000;
+        animation: glow 2s ease-in-out infinite;
+      }
+      @keyframes glow {
+        50% { text-shadow: 0 0 14px #e0d000; }
+      }
+      #loading .dots { display: flex; gap: 0.6rem; }
+      #loading .dots span {
+        width: 8px; height: 8px; background: #e0d000;
+        animation: pulse 1.2s ease-in-out infinite;
+      }
+      #loading .dots span:nth-child(2) { animation-delay: 0.2s; }
+      #loading .dots span:nth-child(3) { animation-delay: 0.4s; }
+      @keyframes pulse {
+        0%, 100% { opacity: 0.15; }
+        40% { opacity: 1; box-shadow: 0 0 8px #e0d000; }
+      }
+      #loading .error { color: #e74518; letter-spacing: 0.1em; text-transform: none; font-size: 0.8rem; }
     </style>
   </head>
   <body>
     <!-- Right click is "back" in the game, so keep the browser menu out of the way. -->
     <canvas id="bevy" tabindex="0" oncontextmenu="return false"></canvas>
+    <div id="loading">
+      <h1>Reunion</h1>
+      <div class="dots"><span></span><span></span><span></span></div>
+    </div>
     <script type="module">
       import init from "./reunion.js";
-      document.getElementById("bevy").focus();
-      await init();
+
+      const loading = document.getElementById("loading");
+      try {
+        // The game starts when init has downloaded and compiled it; the
+        // overlay fades a moment after.
+        requestAnimationFrame(function wait() {
+          if (loading.dataset.started) {
+            setTimeout(() => loading.dataset.failed || loading.classList.add("done"), 300);
+          } else {
+            requestAnimationFrame(wait);
+          }
+        });
+        document.getElementById("bevy").focus();
+        await init().finally(() => (loading.dataset.started = "1"));
+      } catch (error) {
+        // Winit's web event loop ends start-up by throwing; that's not an error.
+        if (!String(error).includes("Using exceptions for control flow")) {
+          loading.dataset.failed = "1";
+          loading.classList.remove("done");
+          loading.querySelector(".dots").outerHTML = `<div class="error">Couldn't start: ${error}</div>`;
+          throw error;
+        }
+      }
     </script>
   </body>
+</html>
