@@ -3,7 +3,8 @@
 
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
-use bevy::window::PrimaryWindow;
+use bevy::input::mouse::{MouseButtonInput, MouseWheel};
+use bevy::window::{CursorOptions, PrimaryWindow};
 use bevy_enhanced_input::prelude::*;
 
 use crate::input::{Alternate, Click, Confirm, Navigate};
@@ -23,6 +24,10 @@ impl Plugin for FocusPlugin {
             .add_observer(confirm)
             .add_observer(alternate)
             .add_observer(click)
+            .add_systems(Startup, |mut cursor: Single<&mut CursorOptions, With<PrimaryWindow>>| {
+                cursor.visible = false;
+            })
+            .add_systems(Update, cursor_visibility)
             .add_systems(
                 Update,
                 (
@@ -121,6 +126,33 @@ fn track_cursor(
     if let Some(pos) = cursor.0 {
         // The mouse takes over focus whenever it moves.
         focus.0 = hotspot_at(pos, hotspots);
+    }
+}
+
+/// The mouse pointer shows while the mouse is in use (the Deck's trackpads
+/// count) and hides once a key or a controller is used instead.
+fn cursor_visibility(
+    mut moved: MessageReader<CursorMoved>,
+    mut buttons: MessageReader<MouseButtonInput>,
+    mut wheel: MessageReader<MouseWheel>,
+    keys: Res<ButtonInput<KeyCode>>,
+    gamepads: Query<&Gamepad>,
+    mut cursor: Single<&mut CursorOptions, With<PrimaryWindow>>,
+) {
+    let mouse = moved.read().count() + buttons.read().count() + wheel.read().count() > 0;
+    let other = keys.get_just_pressed().next().is_some()
+        || gamepads.iter().any(|g| {
+            g.get_just_pressed().next().is_some() || g.left_stick().length() > 0.5 || g.right_stick().length() > 0.5
+        });
+    let visible = if mouse {
+        true
+    } else if other {
+        false
+    } else {
+        return;
+    };
+    if cursor.visible != visible {
+        cursor.visible = visible;
     }
 }
 

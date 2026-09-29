@@ -156,6 +156,11 @@ struct Params {
     source_size: Vec2,
     scale: Vec2,
     mode: u32,
+    /// WebGL2 wants uniform blocks in multiples of 16 bytes: 20 -> 32
+    /// (separate fields: arrays in uniforms get a 16-byte stride).
+    padding0: u32,
+    padding1: u32,
+    padding2: u32,
 }
 
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
@@ -221,6 +226,9 @@ fn spawn_cameras(
             source_size: Vec2::new(width as f32, GAME_HEIGHT),
             scale: Vec2::ONE,
             mode: mode.shader_mode(),
+            padding0: 0,
+            padding1: 0,
+            padding2: 0,
         },
         canvas: image.clone(),
     });
@@ -301,6 +309,9 @@ fn fit_canvas(
         source_size: Vec2::new(width as f32, GAME_HEIGHT),
         scale,
         mode: mode.shader_mode(),
+        padding0: 0,
+        padding1: 0,
+        padding2: 0,
     };
     // Only touch the material on changes: that re-uploads it.
     if materials.get(&canvas.material).is_some_and(|m| m.params != params)

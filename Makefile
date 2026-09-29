@@ -21,7 +21,7 @@ PYTHON     := $(VENV)/bin/python
 GHIDRA     := /opt/homebrew/opt/ghidra/libexec/support/analyzeHeadless
 JAVA_HOME  := /opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
 
-.PHONY: all assets decompile run web serve test deck clean
+.PHONY: all assets decompile run web serve test deck clean game
 
 WASM_OUT   := target/wasm32-unknown-unknown/wasm-release/reunion.wasm
 WEB        := $(DIST)/web
@@ -46,11 +46,9 @@ $(PYTHON):
 	python3 -m venv $(VENV)
 	$(PYTHON) -m pip install -q pillow capstone
 
-# Unpacked game data; the Bevy app reads it through crates/reunion/assets.
-game: $(SOURCE_ZIP)
-	unzip -q -o $(SOURCE_ZIP) -d game
+# The game's files (in the repo); the Bevy app reads them through crates/reunion/assets.
+game:
 	ln -sfn ../../game crates/reunion/assets
-	touch game
 
 assets: $(PYTHON) game
 	$(PYTHON) tools/pic2png.py game extracted/pics

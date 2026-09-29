@@ -9,6 +9,10 @@ struct Params {
     // Screen pixels per texel, per axis.
     scale: vec2<f32>,
     mode: u32,
+    // WebGL2 wants uniform blocks in multiples of 16 bytes.
+    padding0: u32,
+    padding1: u32,
+    padding2: u32,
 };
 
 @group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> params: Params;
