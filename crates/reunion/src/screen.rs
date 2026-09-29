@@ -162,7 +162,8 @@ pub fn in_game(screen: Res<State<GameScreen>>) -> bool {
     screen.get().number().is_some()
 }
 
-/// Play in the original 4:3 even on wide screens.
+/// Use the width of wide screens (false: the original 4:3, black at the
+/// sides). F9 or the right stick button switches.
 #[derive(Resource)]
 pub struct Widescreen(pub bool);
 
@@ -193,7 +194,7 @@ pub struct ScreenPlugin;
 impl Plugin for ScreenPlugin {
     fn build(&self, app: &mut App) {
         app.init_state::<GameScreen>()
-            .insert_resource(Widescreen(true))
+            .insert_resource(Widescreen(false))
             .init_resource::<ViewBounds>()
             .add_systems(PreUpdate, update_view_bounds.after(FitCanvas));
     }

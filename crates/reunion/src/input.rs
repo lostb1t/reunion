@@ -50,6 +50,11 @@ pub struct Click;
 #[action_output(bool)]
 pub struct CycleUpscale;
 
+/// Switch between widescreen and the original 4:3.
+#[derive(InputAction)]
+#[action_output(bool)]
+pub struct ToggleWidescreen;
+
 fn spawn_ui_input(mut commands: Commands) {
     commands.spawn((
         UiInput,
@@ -85,6 +90,10 @@ fn spawn_ui_input(mut commands: Commands) {
             (
                 Action::<CycleUpscale>::new(),
                 bindings![KeyCode::F8, GamepadButton::LeftThumb],
+            ),
+            (
+                Action::<ToggleWidescreen>::new(),
+                bindings![KeyCode::F9, GamepadButton::RightThumb],
             ),
         ]),
     ));

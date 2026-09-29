@@ -16,8 +16,8 @@ use bevy::sprite::Anchor;
 use bevy::sprite_render::{Material2d, Material2dPlugin};
 use bevy_enhanced_input::prelude::*;
 
-use crate::input::CycleUpscale;
-use crate::screen::{GAME_HEIGHT, GAME_WIDTH, PIXEL_ASPECT};
+use crate::input::{CycleUpscale, ToggleWidescreen};
+use crate::screen::{GAME_HEIGHT, GAME_WIDTH, PIXEL_ASPECT, Widescreen};
 
 pub struct UpscalePlugin;
 
@@ -31,7 +31,8 @@ impl Plugin for UpscalePlugin {
             .add_systems(PreUpdate, fit_canvas.in_set(FitCanvas))
             .add_systems(Update, fade_label)
             .add_systems(PostUpdate, place_overlays)
-            .add_observer(cycle);
+            .add_observer(cycle)
+            .add_observer(toggle_widescreen);
     }
 }
 
@@ -253,6 +254,7 @@ fn fit_canvas(
     mut images: ResMut<Assets<Image>>,
     mut materials: ResMut<Assets<UpscaleMaterial>>,
     mode: Res<UpscaleMode>,
+    widescreen: Res<Widescreen>,
     mut canvas: ResMut<Canvas>,
 ) {
     let (Some(logical), Some(physical)) =
@@ -265,7 +267,12 @@ fn fit_canvas(
     let pixels_per_unit = screen.x / logical.x;
     let tall = GAME_HEIGHT * PIXEL_ASPECT;
     // As wide as the screen allows (in whole, even game pixels), at least 320.
-    let width = ((tall * screen.x / screen.y / 2.0).floor() as u32 * 2).max(GAME_WIDTH as u32);
+    // 4:3 keeps the original's 320 columns, with black beside them.
+    let width = if widescreen.0 {
+        ((tall * screen.x / screen.y / 2.0).floor() as u32 * 2).max(GAME_WIDTH as u32)
+    } else {
+        GAME_WIDTH as u32
+    };
     let fit = (screen.x / width as f32).min(screen.y / tall);
     let scale = Vec2::new(fit, fit * PIXEL_ASPECT);
     if width != canvas.width {
@@ -313,6 +320,18 @@ fn cycle(
     let (timer, text, visibility) = &mut *label;
     timer.0 = Timer::from_seconds(2.0, TimerMode::Once);
     text.0 = format!("Upscale: {}", mode.name());
+    **visibility = Visibility::Inherited;
+}
+
+fn toggle_widescreen(
+    _: On<Start<ToggleWidescreen>>,
+    mut widescreen: ResMut<Widescreen>,
+    mut label: Single<(&mut ModeLabel, &mut Text2d, &mut Visibility)>,
+) {
+    widescreen.0 = !widescreen.0;
+    let (timer, text, visibility) = &mut *label;
+    timer.0 = Timer::from_seconds(2.0, TimerMode::Once);
+    text.0 = if widescreen.0 { "Widescreen" } else { "Original 4:3" }.into();
     **visibility = Visibility::Inherited;
 }
 
