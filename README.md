@@ -1,8 +1,10 @@
 # Reunion
 
 A Rust/Bevy rewrite of **Reunion** (Amnesty Design / Grandslam, 1994, DOS), built from
-the original data files, with controller and keyboard support, hover highlights and
-widescreen. Main target is the Steam Deck.
+the original data files:
+
+- **Native builds** for Linux, Windows and macOS, and a browser version.
+- **Controller support**, next to mouse and keyboard.
 
 The original game's files are included (`game/`).
 
