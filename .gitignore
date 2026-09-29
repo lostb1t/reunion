@@ -23,3 +23,7 @@ __pycache__/
 
 # Downloaded models (tools/widen.py)
 /tools/models/
+
+# Steam Deck deploy (local setup)
+/redeploy-deck.sh
+/deck/
